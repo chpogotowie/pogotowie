@@ -18,17 +18,13 @@ const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 function loadAddresses(file) {
     return fs.readFileSync(file, 'utf-8')
-        .split('\n')
-        .map(line => normalize(line.trim()))
-        .filter(line => line.length > 5);
+        const barbaraAddresses = loadAddresses('adresy/sm-barbara.txt');
 }
 
 const mpglAddresses = loadAddresses('adresy/mpgl.txt');
 const sdsmAddresses = loadAddresses('adresy/sdsm.txt');
 const barbaraAddresses = loadAddresses('adresy/sm-barbara.txt');
-    .split('\n')
-    .map(line => normalize(line.trim()))
-    .filter(line => line.length > 5);
+   
 
 // --- PO£¥CZENIA G£OSOWE ---
 app.post('/voice', (req, res) => {
@@ -155,8 +151,7 @@ console.log('Czy adres obs³ugiwany:', isValidAddress);
 Firma: ${firma || 'NIEZNANA'}
 Imiê: ${data.name}
 Adres: ${data.city}, ul. ${data.street} ${data.number}
-Problem: ${data.problem}`
-
+Problem: ${data.problem}
 Obs³ugiwany: ${isValidAddress ? 'TAK' : 'NIE'}`
             });
         }
