@@ -129,8 +129,7 @@ if (mpglAddresses.some(addr => fullAddress.includes(addr))) {
 
 console.log('Firma:', firma);
 
-    return addressText.includes(cleanAddr);
-});
+   
 
 console.log('Czy adres obs³ugiwany:', isValidAddress);
 
@@ -161,10 +160,10 @@ Obs³ugiwany: ${isValidAddress ? 'TAK' : 'NIE'}`
         twiml.say({ language: 'pl-PL', voice: 'alice' }, 'Dziêkujemy, zg³oszenie przyjête.');
         res.type('text/xml');
         res.send(twiml.toString());
-    } catch (err) {
-        console.error(err);
-        res.status(500).send('B³¹d przetwarzania nagrania');
-    }
+   } catch (err) {
+    console.error(err);
+    res.status(500).send('B³¹d przetwarzania nagrania');
+}
 });
 
 // --- SMSY PRZYCHODZ¥CE ---
