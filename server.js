@@ -29,18 +29,20 @@ const barbaraAddresses = loadAddresses('adresy/sm-barbara.txt');
 // --- PO£¥CZENIA G£OSOWE ---
 app.post('/voice', (req, res) => {
     const twiml = new VoiceResponse();
+
     twiml.say(
         { language: 'pl-PL', voice: 'alice' },
         'Pogotowie awaryjne. Informujemy, ¿e rozmowa jest nagrywana. Proszê o podanie imienia, nazwiska i dok³adnego adresu awarii.'
     );
+
     twiml.record({
         maxLength: 120,
-        action: '/process-recording',
+        action: 'https://pogotowie-production.up.railway.app/process-recording',
     });
+
     res.type('text/xml');
     res.send(twiml.toString());
 });
-
 // --- OBS£UGA NAGRANIA ---
 app.post('/process-recording', async (req, res) => {
     try {
