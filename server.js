@@ -18,7 +18,9 @@ const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 function loadAddresses(file) {
     return fs.readFileSync(file, 'utf-8')
-        const barbaraAddresses = loadAddresses('adresy/sm-barbara.txt');
+        .split('\n')
+        .map(line => normalize(line.trim()))
+        .filter(line => line.length > 5);
 }
 
 const mpglAddresses = loadAddresses('adresy/mpgl.txt');
@@ -129,12 +131,10 @@ if (mpglAddresses.some(addr => fullAddress.includes(addr))) {
     firma = 'SM BARBARA';
 }
 
+const isValidAddress = !!firma;
+
 console.log('Firma:', firma);
-
-   
-
 console.log('Czy adres obs³ugiwany:', isValidAddress);
-
 
         // --- WYSY£ANIE SMS DO PRACOWNIKÓW ---
         const twilio = require('twilio')(process.env.TWILIO_SID, process.env.TWILIO_AUTH_TOKEN);
