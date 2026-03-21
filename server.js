@@ -153,14 +153,19 @@ console.log('Czy adres obs³ugiwany:', isValidAddress);
 
         const workers = [
             '+48660687951', // numer pracownika 1
-            '+48XXXXXXXXX'  // numer pracownika 2
         ];
 console.log("?? WYSY£AM SMS");
+
         for (const w of workers) {
             await twilio.messages.create({
                 from: process.env.TWILIO_PHONE,
                 to: w,
                 body: `Nowe zg³oszenie:
+});
+
+    console.log("? wys³ano do:", w);
+}
+
 Firma: ${firma || 'NIEZNANA'}
 Imiê: ${data.name}
 Adres: ${data.city}, ul. ${data.street} ${data.number}
