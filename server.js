@@ -1,3 +1,5 @@
+console.log("NOWA WERSJA KODU");
+
 require('dotenv').config();
 
 function normalize(text) {
@@ -13,6 +15,11 @@ const { MessagingResponse, VoiceResponse } = require('twilio').twiml;
 const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
+
+const twilio = require('twilio')(
+    process.env.TWILIO_SID,
+    process.env.TWILIO_AUTH_TOKEN
+);
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -48,31 +55,46 @@ app.post('/voice', (req, res) => {
 // --- OBS£UGA NAGRANIA ---
 app.post('/process-recording', async (req, res) => {
 
-  
     const twiml = new VoiceResponse();
     twiml.say('Dziêkujemy, zg³oszenie przyjête');
     res.type('text/xml');
     res.send(twiml.toString());
 
     try {
+
         const recordingUrl = req.body.RecordingUrl;
 
         // Pobranie nagrania
-const response = await axios.get(recordingUrl + '.wav', {
-    responseType: 'arraybuffer',
-    auth: {
-        username: process.env.TWILIO_SID,
-        password: process.env.TWILIO_AUTH_TOKEN
-    }
-});
-
+        const response = await axios.get(recordingUrl + '.wav', {
+            responseType: 'arraybuffer',
+            auth: {
+                username: process.env.TWILIO_SID,
+                password: process.env.TWILIO_AUTH_TOKEN
+            }
+        });
 const audioBuffer = Buffer.from(response.data);
+
 console.log("? NAGRANIE POBRANE");
 
+// Wysy³amy do OpenAI Whisper
+const formData = new FormData();
+formData.append('file', audioBuffer, 'nagranie.wav'); // ?? TO MUSI BYÆ
+formData.append('model', 'whisper-1');
 
-        // Wysy³amy do OpenAI Whisper
-       const transcribedText = "Jan Kowalski Katowice ul 1 Maja 2 zalanie mieszkania";
-console.log("TEST transkrypcji:", transcribedText);
+const aiResponse = await axios.post(
+    'https://api.openai.com/v1/audio/transcriptions',
+    formData,
+    {
+        headers: {
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            ...formData.getHeaders()
+        }
+    }
+);
+
+        const transcribedText = aiResponse.data.text;
+        console.log('Transkrypcja:', transcribedText);
+console.log("TEKST Z WHISPER:", transcribedText);
 console.log("? WHISPER OK");
 
 //  ANALIZA TEKSTU (GPT)
@@ -125,6 +147,28 @@ console.log("? GPT OK");
 console.log("Dane po parsowaniu:", data);
 
 console.log('Dane:', data);
+
+const isBadData =
+    !data.name || data.name === "BRAK" ||
+    !data.city || data.city === "BRAK" ||
+    !data.street || data.street === "BRAK" ||
+    !data.number || data.number === "BRAK" ||
+    !data.problem || data.problem === "BRAK";
+if (isBadData) {
+    console.log("? NIE ROZPOZNANO DANYCH - SMS do klienta");
+
+
+    await twilio.messages.create({
+        from: process.env.TWILIO_PHONE,
+        to: req.body.From, // ?? klient
+        body: `Nie uda³o siê poprawnie rozpoznaæ zg³oszenia.
+Prosimy o wype³nienie formularza:
+https://twojastrona.pl/zgloszenie`
+    });
+
+    return; // ?? STOP — nie idzie dalej do pracowników
+}
+
 const addressText = normalize(data.address || "");
 
 const fullAddress = normalize(
@@ -149,7 +193,7 @@ console.log('Firma:', firma);
 console.log('Czy adres obs³ugiwany:', isValidAddress);
 
         // --- WYSY£ANIE SMS DO PRACOWNIKÓW ---
-        const twilio = require('twilio')(process.env.TWILIO_SID, process.env.TWILIO_AUTH_TOKEN);
+
 
         const workers = [
             '+48660687951', // numer pracownika 1
@@ -157,22 +201,21 @@ console.log('Czy adres obs³ugiwany:', isValidAddress);
 console.log("?? WYSY£AM SMS");
 
         for (const w of workers) {
-            await twilio.messages.create({
-                from: process.env.TWILIO_PHONE,
-                to: w,
-                body: `Nowe zg³oszenie:
-});
-
-    console.log("? wys³ano do:", w);
-}
-
+const msg = await twilio.messages.create({
+    from: process.env.TWILIO_PHONE,
+    to: w,
+    body: `Nowe zg³oszenie:
 Firma: ${firma || 'NIEZNANA'}
 Imiê: ${data.name}
 Adres: ${data.city}, ul. ${data.street} ${data.number}
 Problem: ${data.problem}
 Obs³ugiwany: ${isValidAddress ? 'TAK' : 'NIE'}`
-            });
-        }
+});
+
+console.log("SID:", msg.sid);
+console.log("STATUS:", msg.status);
+console.log(" wys³ano do:", w);
+}
 
         // OdpowiedŸ dla klienta
       
