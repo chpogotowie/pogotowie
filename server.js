@@ -58,8 +58,13 @@ app.post('/process-recording', async (req, res) => {
         const recordingUrl = req.body.RecordingUrl;
 
         // Pobranie nagrania
-        const response = await axios.get(recordingUrl + '.wav', { responseType: 'arraybuffer' });
-        const audioBuffer = Buffer.from(response.data);
+       const response = await axios.get(recordingUrl + '.wav', {
+    responseType: 'arraybuffer',
+    auth: {
+        username: process.env.,
+        password: process.env.4f919521ef996db1e560c1dbb7a89c3e
+    }
+});
 
         // Wysy³amy do OpenAI Whisper
         const formData = new FormData();
@@ -174,10 +179,7 @@ Obs³ugiwany: ${isValidAddress ? 'TAK' : 'NIE'}`
         }
 
         // OdpowiedŸ dla klienta
-        const twiml = new VoiceResponse();
-        twiml.say({ language: 'pl-PL', voice: 'alice' }, 'Dziêkujemy, zg³oszenie przyjête.');
-        res.type('text/xml');
-        res.send(twiml.toString());
+      
    } catch (err) {
     console.error(err);
     res.status(500).send('B³¹d przetwarzania nagrania');
