@@ -58,13 +58,16 @@ app.post('/process-recording', async (req, res) => {
         const recordingUrl = req.body.RecordingUrl;
 
         // Pobranie nagrania
-       const response = await axios.get(recordingUrl + '.wav', {
+const response = await axios.get(recordingUrl + '.wav', {
     responseType: 'arraybuffer',
     auth: {
-        username: process.env.,
-        password: process.env.4f919521ef996db1e560c1dbb7a89c3e
+        username: process.env.TWILIO_SID,
+        password: process.env.TWILIO_AUTH_TOKEN
     }
 });
+
+const audioBuffer = Buffer.from(response.data);
+
 
         // Wysy³amy do OpenAI Whisper
         const formData = new FormData();
