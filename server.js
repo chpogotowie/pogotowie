@@ -67,26 +67,13 @@ const response = await axios.get(recordingUrl + '.wav', {
 });
 
 const audioBuffer = Buffer.from(response.data);
+console.log("? NAGRANIE POBRANE");
 
 
         // Wysy³amy do OpenAI Whisper
-        const formData = new FormData();
-        formData.append('file', audioBuffer, 'nagranie.wav');
-        formData.append('model', 'whisper-1');
-
-        const aiResponse = await axios.post(
-            'https://api.openai.com/v1/audio/transcriptions',
-            formData,
-            {
-                headers: {
-                    'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-                    ...formData.getHeaders()
-                }
-            }
-        );
-
-        const transcribedText = aiResponse.data.text;
-        console.log('Transkrypcja:', transcribedText);
+       const transcribedText = "Jan Kowalski Katowice ul 1 Maja 2 zalanie mieszkania";
+console.log("TEST transkrypcji:", transcribedText);
+console.log("? WHISPER OK");
 
 //  ANALIZA TEKSTU (GPT)
 const gptResponse = await axios.post(
@@ -133,6 +120,7 @@ console.log("RAW GPT:", raw);
 raw = raw.replace(/```json/g, '').replace(/```/g, '').trim();
 
 const data = JSON.parse(raw);
+console.log("? GPT OK");
 
 console.log("Dane po parsowaniu:", data);
 
@@ -167,7 +155,7 @@ console.log('Czy adres obs³ugiwany:', isValidAddress);
             '+48660687951', // numer pracownika 1
             '+48XXXXXXXXX'  // numer pracownika 2
         ];
-
+console.log("?? WYSY£AM SMS");
         for (const w of workers) {
             await twilio.messages.create({
                 from: process.env.TWILIO_PHONE,
