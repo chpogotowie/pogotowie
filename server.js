@@ -117,7 +117,16 @@ Zasady:
     }
 );
 
-const data = JSON.parse(gptResponse.data.choices[0].message.content);
+let raw = gptResponse.data.choices[0].message.content;
+
+console.log("RAW GPT:", raw);
+
+// usuwa ```json ```
+raw = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+
+const data = JSON.parse(raw);
+
+console.log("Dane po parsowaniu:", data);
 
 console.log('Dane:', data);
 const addressText = normalize(data.address || "");
@@ -147,7 +156,7 @@ console.log('Czy adres obs³ugiwany:', isValidAddress);
         const twilio = require('twilio')(process.env.TWILIO_SID, process.env.TWILIO_AUTH_TOKEN);
 
         const workers = [
-            '+48XXXXXXXXX', // numer pracownika 1
+            '+48660687951', // numer pracownika 1
             '+48XXXXXXXXX'  // numer pracownika 2
         ];
 
