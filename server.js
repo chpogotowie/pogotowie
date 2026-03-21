@@ -16,6 +16,22 @@ const fs = require('fs');
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
+
+async function retryWithBackoff(fn, maxRetries = 3) {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            return await fn();
+        } catch (err) {
+            if (err.response?.status === 429 && i < maxRetries - 1) {
+                const delay = Math.pow(2, i) * 1000;
+                console.log(`Rate limited by OpenAI. Retrying in ${delay}ms... (attempt ${i + 1}/${maxRetries - 1})`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                throw err;
+            }
+        }
+    }
+}
 function loadAddresses(file) {
     return fs.readFileSync(file, 'utf-8')
         .split('\n')
@@ -28,13 +44,13 @@ const sdsmAddresses = loadAddresses('adresy/sdsm.txt');
 const barbaraAddresses = loadAddresses('adresy/sm-barbara.txt');
    
 
-// --- PO£¥CZENIA G£OSOWE ---
+// --- POÂ£Â¥CZENIA GÂ£OSOWE ---
 app.post('/voice', (req, res) => {
     const twiml = new VoiceResponse();
 
     twiml.say(
         { language: 'pl-PL', voice: 'alice' },
-        'Pogotowie awaryjne. Informujemy, ¿e rozmowa jest nagrywana. Proszê o podanie imienia, nazwiska i dok³adnego adresu awarii.'
+        'Pogotowie awaryjne. Informujemy, Â¿e rozmowa jest nagrywana. ProszÃª o podanie imienia, nazwiska i dokÂ³adnego adresu awarii.'
     );
 
     twiml.record({
@@ -45,12 +61,12 @@ app.post('/voice', (req, res) => {
     res.type('text/xml');
     res.send(twiml.toString());
 });
-// --- OBS£UGA NAGRANIA ---
+// --- OBSÂ£UGA NAGRANIA ---
 app.post('/process-recording', async (req, res) => {
 
   
     const twiml = new VoiceResponse();
-    twiml.say('Dziêkujemy, zg³oszenie przyjête');
+    twiml.say('DziÃªkujemy, zgÂ³oszenie przyjÃªte');
     res.type('text/xml');
     res.send(twiml.toString());
 
@@ -69,12 +85,12 @@ const response = await axios.get(recordingUrl + '.wav', {
 const audioBuffer = Buffer.from(response.data);
 
 
-        // Wysy³amy do OpenAI Whisper
+        // WysyÂ³amy do OpenAI Whisper
         const formData = new FormData();
         formData.append('file', audioBuffer, 'nagranie.wav');
         formData.append('model', 'whisper-1');
 
-        const aiResponse = await axios.post(
+        const aiResponse = await retryWithBackoff(() => axios.post(
             'https://api.openai.com/v1/audio/transcriptions',
             formData,
             {
@@ -83,35 +99,20 @@ const audioBuffer = Buffer.from(response.data);
                     ...formData.getHeaders()
                 }
             }
-        );
+        ));
 
         const transcribedText = aiResponse.data.text;
         console.log('Transkrypcja:', transcribedText);
 
 //  ANALIZA TEKSTU (GPT)
-const gptResponse = await axios.post(
+const gptResponse = await retryWithBackoff(() => axios.post(
     'https://api.openai.com/v1/chat/completions',
     {
         model: 'gpt-4o-mini',
         messages: [
             {
                 role: 'system',
-                content: `Wyci¹gnij dane z tekstu i zwróæ JSON:
-{
-"name": "",
-"city": "",
-"street": "",
-"number": "",
-"problem": ""
-}
-
-Zasady:
-- rozdziel ulicê i numer (np. "1 maja" i "2-4")
-- rozpoznaj miasto nawet jeœli jest na koñcu
-- popraw b³êdy (np. "swietochlowice" › "Œwiêtoch³owice")
-- jeœli brak danych wpisz "BRAK"`
-
-            },
+                content: `WyciÂ¹gnij dane z tekstu i zwrÃ³Ã¦ JSON:\n{\n\"name\": \"\",\n\"city\": \"\",\n\"street\": \"\",\n\"number\": \"\",\n\"problem\": \"\"\n}\n\nZasady:\n- rozdziel ulicÃª i numer (np. \"1 maja\" i \"2-4\")\n- rozpoznaj miasto nawet jeÅ“li jest na koÃ±cu\n- popraw bÂ³Ãªdy (np. \"swietochlowice\" â€º \"Å’wiÃªtochÂ³owice\")\n- jeÅ“li brak danych wpisz \"BRAK\"`\n\n            },
             {
                 role: 'user',
                 content: transcribedText
@@ -123,9 +124,10 @@ Zasady:
             'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
         }
     }
-);
+));
 
 let raw = gptResponse.data.choices[0].message.content;
+
 
 console.log("RAW GPT:", raw);
 
@@ -143,7 +145,7 @@ const fullAddress = normalize(
     `${data.city} ul ${data.street} ${data.number}`
 );
 
-console.log('Z³o¿ony adres:', fullAddress);
+console.log('ZÂ³oÂ¿ony adres:', fullAddress);
 
 let firma = null;
 
@@ -158,9 +160,9 @@ if (mpglAddresses.some(addr => fullAddress.includes(addr))) {
 const isValidAddress = !!firma;
 
 console.log('Firma:', firma);
-console.log('Czy adres obs³ugiwany:', isValidAddress);
+console.log('Czy adres obsÂ³ugiwany:', isValidAddress);
 
-        // --- WYSY£ANIE SMS DO PRACOWNIKÓW ---
+        // --- WYSYÂ£ANIE SMS DO PRACOWNIKÃ“W ---
         const twilio = require('twilio')(process.env.TWILIO_SID, process.env.TWILIO_AUTH_TOKEN);
 
         const workers = [
@@ -172,28 +174,28 @@ console.log('Czy adres obs³ugiwany:', isValidAddress);
             await twilio.messages.create({
                 from: process.env.TWILIO_PHONE,
                 to: w,
-                body: `Nowe zg³oszenie:
+                body: `Nowe zgÂ³oszenie:
 Firma: ${firma || 'NIEZNANA'}
-Imiê: ${data.name}
+ImiÃª: ${data.name}
 Adres: ${data.city}, ul. ${data.street} ${data.number}
 Problem: ${data.problem}
-Obs³ugiwany: ${isValidAddress ? 'TAK' : 'NIE'}`
+ObsÂ³ugiwany: ${isValidAddress ? 'TAK' : 'NIE'}`
             });
         }
 
-        // OdpowiedŸ dla klienta
+        // OdpowiedÅ¸ dla klienta
       
    } catch (err) {
     console.error(err);
-    res.status(500).send('B³¹d przetwarzania nagrania');
+    res.status(500).send('BÂ³Â¹d przetwarzania nagrania');
 }
 });
 
-// --- SMSY PRZYCHODZ¥CE ---
+// --- SMSY PRZYCHODZÂ¥CE ---
 app.post('/sms', (req, res) => {
     const incomingMsg = req.body.Body;
     const twiml = new MessagingResponse();
-    twiml.message('Dziêkujemy za zg³oszenie');
+    twiml.message('DziÃªkujemy za zgÂ³oszenie');
     res.type('text/xml');
     res.send(twiml.toString());
 });
