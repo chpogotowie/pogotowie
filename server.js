@@ -191,7 +191,7 @@ https://twojastrona.pl/zgloszenie`
 
 const addressText = normalize(data.address || "");
 
-const fullAddress = normalize(
+const fullAddress = simplifyAddress(
     `${data.city} ${data.street} ${data.number}`
 );
 
@@ -200,30 +200,45 @@ console.log('Złożony adres:', fullAddress);
 console.log("SZUKAM:", fullAddress);
 
 console.log("=== LISTA MPGL ===");
-mpglAddresses.slice(0, 5).forEach(addr => console.log(addr));
+mpglAddresses.slice(0, 5).forEach(addr => {
+    console.log("MPGL RAW:", addr);
+    console.log("MPGL SIMPLIFIED:", simplifyAddress(addr));
+});
 
-const found = mpglAddresses.find(addr => 
-    fullAddress.includes(addr) || addr.includes(fullAddress)
-);
+const found = mpglAddresses.find(addr => {
+    const simplifiedAddr = simplifyAddress(addr);
+
+    return fullAddress.includes(simplifiedAddr) ||
+           simplifiedAddr.includes(fullAddress);
+});
 
 console.log("ZNALEZIONY:", found);
 
 let firma = null;
 
 
-if (mpglAddresses.some(addr => 
-    fullAddress.includes(addr) || addr.includes(fullAddress)
-)) {
+if (mpglAddresses.some(addr => {
+    const simplifiedAddr = simplifyAddress(addr);
+
+    return fullAddress.includes(simplifiedAddr) ||
+           simplifiedAddr.includes(fullAddress);
+})) {
     firma = 'MPGL';
 
-} else if (sdsmAddresses.some(addr => 
-    fullAddress.includes(addr) || addr.includes(fullAddress)
-)) {
+} else if (sdsmAddresses.some(addr => {
+    const simplifiedAddr = simplifyAddress(addr);
+
+    return fullAddress.includes(simplifiedAddr) ||
+           simplifiedAddr.includes(fullAddress);
+})) {
     firma = 'SDSM';
 
-} else if (barbaraAddresses.some(addr => 
-    fullAddress.includes(addr) || addr.includes(fullAddress)
-)) {
+} else if (barbaraAddresses.some(addr => {
+    const simplifiedAddr = simplifyAddress(addr);
+
+    return fullAddress.includes(simplifiedAddr) ||
+           simplifiedAddr.includes(fullAddress);
+})) {
     firma = 'SM BARBARA';
 }
 
