@@ -385,70 +385,66 @@ Zasady:
             `${data.city} ${data.street} ${data.number}`
         );
 
-        let firma = null;
+let firma = null;
 
-        if (mpglAddresses.some(addr => {
-            const s = simplifyAddress(addr);
-            return fullAddress.includes(s) || s.includes(fullAddress);
-        })) {
-            firma = 'MPGL';
+if (mpglAddresses.some(addr => {
+    const s = simplifyAddress(addr);
+    return fullAddress === s;
+})) {
+    firma = 'MPGL';
 
-        } else if (sdsmAddresses.some(addr => {
-            const s = simplifyAddress(addr);
-            return fullAddress.includes(s) || s.includes(fullAddress);
-        })) {
-            firma = 'SDSM';
+} else if (sdsmAddresses.some(addr => {
+    const s = simplifyAddress(addr);
+    return fullAddress === s;
+})) {
+    firma = 'SDSM';
 
-        } else if (barbaraAddresses.some(addr => {
-            const s = simplifyAddress(addr);
-            return fullAddress.includes(s) || s.includes(fullAddress);
-        })) {
-            firma = 'SM BARBARA';
-        }
+} else if (barbaraAddresses.some(addr => {
+    const s = simplifyAddress(addr);
+    return fullAddress === s;
+})) {
+    firma = 'SM BARBARA';
+}
 
-        const isValidAddress = !!firma;
+const isValidAddress = !!firma;
 
-        console.log("FIRMA:", firma);
-        console.log("OBSŁUGIWANY:", isValidAddress);
+console.log("FIRMA:", firma);
+console.log("OBSŁUGIWANY:", isValidAddress);
 
-        // JEŚLI POPRAWNY
-        if (isValidAddress) {
+// JEŚLI POPRAWNY
+if (isValidAddress) {
 
-            // SMS do pracownika
-            await twilio.messages.create({
-                from: process.env.TWILIO_PHONE,
-                to: '+48660687951',
-                body: `Nowe zgłoszenie (SMS):
+    const phone = req.body.From;
+
+    // SMS do pracownika
+    await twilio.messages.create({
+        from: process.env.TWILIO_PHONE,
+        to: '+48660687951',
+        body: `Nowe zgłoszenie (SMS):
+
 Firma: ${firma}
-Imię: ${data.name}
-Adres: ${data.city}, ul. ${data.street} ${data.number}
+Telefon: ${phone}
+Adres: ${data.city}, ul. ${data.street} ${data.number}${data.flat ? '/' + data.flat : ''}
 Problem: ${data.problem}`
-            });
+    });
 
-            // SMS do klienta
-            await twilio.messages.create({
-                from: process.env.TWILIO_PHONE,
-                to: req.body.From,
-                body: `Dziękujemy, zgłoszenie przyjęte:
-${data.city}, ul. ${data.street} ${data.number}`
-            });
+    // SMS do klienta
+    await twilio.messages.create({
+        from: process.env.TWILIO_PHONE,
+        to: phone,
+        body: `Dziękujemy, zgłoszenie przyjęte:
+${data.city}, ul. ${data.street} ${data.number}${data.flat ? '/' + data.flat : ''}`
+    });
 
-        } else {
-            // NADAL NIE OBSŁUGIWANY
-            await twilio.messages.create({
-                from: process.env.TWILIO_PHONE,
-                to: req.body.From,
-                body: `Przepraszamy, nie obsługujemy tego adresu.
+} else {
+    // NADAL NIE OBSŁUGIWANY
+    await twilio.messages.create({
+        from: process.env.TWILIO_PHONE,
+        to: req.body.From,
+        body: `Przepraszamy, nie obsługujemy tego adresu.
 Prosimy skontaktować się z inną firmą.`
-            });
-        }
-
-    } catch (err) {
-        console.error("BŁĄD SMS:", err);
-    }
-
-    res.send('<Response></Response>');
-});
+    });
+}
 
 // --- URUCHOMIENIE SERWERA ---
 const PORT = process.env.PORT || 3000;
