@@ -7,11 +7,26 @@ function normalize(text) {
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, '')
-        .replace(/\./g, '')        // usuwa kropki (ul.)
-        .replace(/,/g, '')         // usuwa przecinki
-        .replace(/\s+/g, ' ')      // usuwa podwójne spacje
-        .replace(/\s([0-9]+)\s([a-z])/g, '$1$2') // 6 a -> 6a
+        .replace(/\./g, '')
+        .replace(/,/g, '')
+        .replace(/\s+/g, ' ')
+        .replace(/\s([0-9]+)\s([a-z])/g, '$1$2')
         .trim();
+}
+
+function simplifyAddress(text) {
+    return normalize(text)
+        .split(' ')
+        .filter(word => word.length > 2)
+        .map(word => {
+            return word
+                .replace(/ej$/, 'a')
+                .replace(/ą$/, 'a')
+                .replace(/ego$/, '')
+                .replace(/ie$/, 'a')
+                .replace(/y$/, 'a');
+        })
+        .join(' ');
 }
 
 const express = require('express');
