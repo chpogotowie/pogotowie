@@ -1,4 +1,4 @@
-console.log("NOWA WERSJA KODU");
+console.log("TEST NOWEGO KODU 999");
 
 require('dotenv').config();
 
@@ -35,13 +35,13 @@ const sdsmAddresses = loadAddresses('adresy/sdsm.txt');
 const barbaraAddresses = loadAddresses('adresy/sm-barbara.txt');
    
 
-// --- PO£¥CZENIA G£OSOWE ---
+// --- PO  CZENIA G OSOWE ---
 app.post('/voice', (req, res) => {
     const twiml = new VoiceResponse();
 
     twiml.say(
         { language: 'pl-PL', voice: 'alice' },
-        'Pogotowie awaryjne. Informujemy, ¿e rozmowa jest nagrywana. Proszê o podanie imienia, nazwiska i dok³adnego adresu awarii.'
+        'Pogotowie awaryjne. Informujemy,  e rozmowa jest nagrywana. Prosz  o podanie imienia, nazwiska i dok adnego adresu awarii.'
     );
 
     twiml.record({
@@ -52,11 +52,11 @@ app.post('/voice', (req, res) => {
     res.type('text/xml');
     res.send(twiml.toString());
 });
-// --- OBS£UGA NAGRANIA ---
+// --- OBS UGA NAGRANIA ---
 app.post('/process-recording', async (req, res) => {
 
     const twiml = new VoiceResponse();
-    twiml.say('Dziêkujemy, zg³oszenie przyjête');
+    twiml.say('Dzi kujemy, zg oszenie przyj te');
     res.type('text/xml');
     res.send(twiml.toString());
 
@@ -76,9 +76,9 @@ const audioBuffer = Buffer.from(response.data);
 
 console.log("? NAGRANIE POBRANE");
 
-// Wysy³amy do OpenAI Whisper
+// Wysy amy do OpenAI Whisper
 const formData = new FormData();
-formData.append('file', audioBuffer, 'nagranie.wav'); // ?? TO MUSI BYÆ
+formData.append('file', audioBuffer, 'nagranie.wav'); // ?? TO MUSI BY 
 formData.append('model', 'whisper-1');
 
 const aiResponse = await axios.post(
@@ -105,7 +105,7 @@ const gptResponse = await axios.post(
         messages: [
             {
                 role: 'system',
-                content: `Wyci¹gnij dane z tekstu i zwróæ JSON:
+                content: `Wyci gnij dane z tekstu i zwr   JSON:
 {
 "name": "",
 "city": "",
@@ -115,10 +115,10 @@ const gptResponse = await axios.post(
 }
 
 Zasady:
-- rozdziel ulicê i numer (np. "1 maja" i "2-4")
-- rozpoznaj miasto nawet jeœli jest na koñcu
-- popraw b³êdy (np. "swietochlowice" › "Œwiêtoch³owice")
-- jeœli brak danych wpisz "BRAK"`
+- rozdziel ulic  i numer (np. "1 maja" i "2-4")
+- rozpoznaj miasto nawet je li jest na ko cu
+- popraw b  dy (np. "swietochlowice"   " wi toch owice")
+- je li brak danych wpisz "BRAK"`
 
             },
             {
@@ -161,12 +161,12 @@ if (isBadData) {
     await twilio.messages.create({
         from: process.env.TWILIO_PHONE,
         to: req.body.From, // ?? klient
-        body: `Nie uda³o siê poprawnie rozpoznaæ zg³oszenia.
-Prosimy o wype³nienie formularza:
+        body: `Nie uda o si  poprawnie rozpozna  zg oszenia.
+Prosimy o wype nienie formularza:
 https://twojastrona.pl/zgloszenie`
     });
 
-    return; // ?? STOP — nie idzie dalej do pracowników
+    return; // ?? STOP   nie idzie dalej do pracownik w
 }
 
 const addressText = normalize(data.address || "");
@@ -175,7 +175,7 @@ const fullAddress = normalize(
     `${data.city} ul ${data.street} ${data.number}`
 );
 
-console.log('Z³o¿ony adres:', fullAddress);
+console.log('Z o ony adres:', fullAddress);
 
 let firma = null;
 
@@ -190,46 +190,46 @@ if (mpglAddresses.some(addr => fullAddress.includes(addr))) {
 const isValidAddress = !!firma;
 
 console.log('Firma:', firma);
-console.log('Czy adres obs³ugiwany:', isValidAddress);
+console.log('Czy adres obs ugiwany:', isValidAddress);
 
-        // --- WYSY£ANIE SMS DO PRACOWNIKÓW ---
+        // --- WYSY ANIE SMS DO PRACOWNIK W ---
 
 
         const workers = [
             '+48660687951', // numer pracownika 1
         ];
-console.log("?? WYSY£AM SMS");
+console.log("?? WYSY AM SMS");
 
         for (const w of workers) {
 const msg = await twilio.messages.create({
     from: process.env.TWILIO_PHONE,
     to: w,
-    body: `Nowe zg³oszenie:
+    body: `Nowe zg oszenie:
 Firma: ${firma || 'NIEZNANA'}
-Imiê: ${data.name}
+Imi : ${data.name}
 Adres: ${data.city}, ul. ${data.street} ${data.number}
 Problem: ${data.problem}
-Obs³ugiwany: ${isValidAddress ? 'TAK' : 'NIE'}`
+Obs ugiwany: ${isValidAddress ? 'TAK' : 'NIE'}`
 });
 
 console.log("SID:", msg.sid);
 console.log("STATUS:", msg.status);
-console.log(" wys³ano do:", w);
+console.log(" wys ano do:", w);
 }
 
-        // OdpowiedŸ dla klienta
+        // Odpowied  dla klienta
       
    } catch (err) {
     console.error(err);
-    res.status(500).send('B³¹d przetwarzania nagrania');
+    res.status(500).send('B  d przetwarzania nagrania');
 }
 });
 
-// --- SMSY PRZYCHODZ¥CE ---
+// --- SMSY PRZYCHODZ CE ---
 app.post('/sms', (req, res) => {
     const incomingMsg = req.body.Body;
     const twiml = new MessagingResponse();
-    twiml.message('Dziêkujemy za zg³oszenie');
+    twiml.message('Dzi kujemy za zg oszenie');
     res.type('text/xml');
     res.send(twiml.toString());
 });
