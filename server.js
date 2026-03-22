@@ -245,25 +245,19 @@ let firma = null;
 
 if (mpglAddresses.some(addr => {
     const simplifiedAddr = simplifyAddress(addr);
-
-    return fullAddress.includes(simplifiedAddr) ||
-           simplifiedAddr.includes(fullAddress);
+    return fullAddress === simplifiedAddr;
 })) {
     firma = 'MPGL';
 
 } else if (sdsmAddresses.some(addr => {
     const simplifiedAddr = simplifyAddress(addr);
-
-    return fullAddress.includes(simplifiedAddr) ||
-           simplifiedAddr.includes(fullAddress);
+    return fullAddress === simplifiedAddr;
 })) {
     firma = 'SDSM';
 
 } else if (barbaraAddresses.some(addr => {
     const simplifiedAddr = simplifyAddress(addr);
-
-    return fullAddress.includes(simplifiedAddr) ||
-           simplifiedAddr.includes(fullAddress);
+    return fullAddress === simplifiedAddr;
 })) {
     firma = 'SM BARBARA';
 }
@@ -353,13 +347,20 @@ app.post('/sms', async (req, res) => {
                         role: 'system',
                         content: `Wyciągnij dane z tekstu i zwróć JSON:
 {
-"name": "",
 "city": "",
 "street": "",
 "number": "",
+"flat": "",
 "problem": ""
-}`
-                    },
+}
+
+Zasady:
+- jeśli jest "6a/12" → number=6a, flat=12
+- jeśli jest "mieszkanie 12" → flat=12
+- jeśli jest "m 12" → flat=12
+- jeśli brak mieszkania wpisz ""
+`    
+                },
                     {
                         role: 'user',
                         content: incomingMsg
