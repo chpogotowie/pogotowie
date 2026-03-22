@@ -191,7 +191,6 @@ https://twojastrona.pl/zgloszenie`
     return; // ?? STOP   nie idzie dalej do pracownik w
 }
 
-const addressText = normalize(data.address || "");
 
 const fullAddress = simplifyAddress(
     `${data.city} ${data.street} ${data.number}`
@@ -234,14 +233,13 @@ mpglAddresses.slice(0, 5).forEach(addr => {
 const found = mpglAddresses.find(addr => {
     const simplifiedAddr = simplifyAddress(addr);
 
-    return fullAddress.includes(simplifiedAddr) ||
+    return fullAddress === simplifiedAddr ||
            simplifiedAddr.includes(fullAddress);
 });
 
 console.log("ZNALEZIONY:", found);
 
 let firma = null;
-
 
 if (mpglAddresses.some(addr => {
     const simplifiedAddr = simplifyAddress(addr);
@@ -266,7 +264,6 @@ const isValidAddress = !!firma;
 
 console.log('Firma:', firma);
 console.log('Czy adres obsługiwany:', isValidAddress);
-
 
 // --- SMS DO KLIENTA ---
 if (req.body.From) {
@@ -303,28 +300,28 @@ Problem:`
         ];
 console.log("?? WYSY AM SMS");
 
-        for (const w of workers) {
-const msg = await twilio.messages.create({
-    from: process.env.TWILIO_PHONE,
-    to: w,
-    body: `Nowe zgloszenie:
+for (const w of workers) {
+    const msg = await twilio.messages.create({
+        from: process.env.TWILIO_PHONE,
+        to: w,
+        body: `Nowe zgloszenie:
 Firma: ${firma || 'NIEZNANA'}
-Imi : ${data.name}
+Telefon: ${req.body.From}
 Adres: ${data.city}, ul. ${data.street} ${data.number}
 Problem: ${data.problem}
-Obs ugiwany: ${isValidAddress ? 'TAK' : 'NIE'}`
-});
+Obslugiwany: ${isValidAddress ? 'TAK' : 'NIE'}`
+    });
 
-console.log("SID:", msg.sid);
-console.log("STATUS:", msg.status);
-console.log(" wys ano do:", w);
+    console.log("SID:", msg.sid);
+    console.log("STATUS:", msg.status);
+    console.log("wyslano do:", w);
 }
 
         // Odpowied  dla klienta
       
    } catch (err) {
     console.error(err);
-    res.status(500).send('B  d przetwarzania nagrania');
+    res.status(500).send('Blad przetwarzania nagrania');
 }
 });
 
@@ -337,6 +334,7 @@ app.post('/sms', async (req, res) => {
     console.log("SMS OD KLIENTA:", incomingMsg);
 
     try {
+
         // --- GPT ANALIZA ---
         const gptResponse = await axios.post(
             'https://api.openai.com/v1/chat/completions',
@@ -352,15 +350,8 @@ app.post('/sms', async (req, res) => {
 "number": "",
 "flat": "",
 "problem": ""
-}
-
-Zasady:
-- jeśli jest "6a/12" → number=6a, flat=12
-- jeśli jest "mieszkanie 12" → flat=12
-- jeśli jest "m 12" → flat=12
-- jeśli brak mieszkania wpisz ""
-`    
-                },
+}`
+                    },
                     {
                         role: 'user',
                         content: incomingMsg
@@ -385,66 +376,70 @@ Zasady:
             `${data.city} ${data.street} ${data.number}`
         );
 
-let firma = null;
+        let firma = null;
 
-if (mpglAddresses.some(addr => {
-    const s = simplifyAddress(addr);
-    return fullAddress === s;
-})) {
-    firma = 'MPGL';
+        if (mpglAddresses.some(addr => {
+            const s = simplifyAddress(addr);
+            return fullAddress.includes(s) || s.includes(fullAddress);
+        })) {
+            firma = 'MPGL';
 
-} else if (sdsmAddresses.some(addr => {
-    const s = simplifyAddress(addr);
-    return fullAddress === s;
-})) {
-    firma = 'SDSM';
+        } else if (sdsmAddresses.some(addr => {
+            const s = simplifyAddress(addr);
+            return fullAddress.includes(s) || s.includes(fullAddress);
+        })) {
+            firma = 'SDSM';
 
-} else if (barbaraAddresses.some(addr => {
-    const s = simplifyAddress(addr);
-    return fullAddress === s;
-})) {
-    firma = 'SM BARBARA';
-}
+        } else if (barbaraAddresses.some(addr => {
+            const s = simplifyAddress(addr);
+            return fullAddress.includes(s) || s.includes(fullAddress);
+        })) {
+            firma = 'SM BARBARA';
+        }
 
-const isValidAddress = !!firma;
+        const isValidAddress = !!firma;
 
-console.log("FIRMA:", firma);
-console.log("OBSŁUGIWANY:", isValidAddress);
+        console.log("FIRMA:", firma);
+        console.log("OBSŁUGIWANY:", isValidAddress);
 
-// JEŚLI POPRAWNY
-if (isValidAddress) {
+        const phone = req.body.From;
 
-    const phone = req.body.From;
+        if (isValidAddress) {
 
-    // SMS do pracownika
-    await twilio.messages.create({
-        from: process.env.TWILIO_PHONE,
-        to: '+48660687951',
-        body: `Nowe zgłoszenie (SMS):
+            await twilio.messages.create({
+                from: process.env.TWILIO_PHONE,
+                to: '+48660687951',
+                body: `Nowe zgłoszenie (SMS):
 
 Firma: ${firma}
 Telefon: ${phone}
 Adres: ${data.city}, ul. ${data.street} ${data.number}${data.flat ? '/' + data.flat : ''}
 Problem: ${data.problem}`
-    });
+            });
 
-    // SMS do klienta
-    await twilio.messages.create({
-        from: process.env.TWILIO_PHONE,
-        to: phone,
-        body: `Dziękujemy, zgłoszenie przyjęte:
+            await twilio.messages.create({
+                from: process.env.TWILIO_PHONE,
+                to: phone,
+                body: `Dziękujemy, zgłoszenie przyjęte:
 ${data.city}, ul. ${data.street} ${data.number}${data.flat ? '/' + data.flat : ''}`
-    });
+            });
 
-} else {
-    // NADAL NIE OBSŁUGIWANY
-    await twilio.messages.create({
-        from: process.env.TWILIO_PHONE,
-        to: req.body.From,
-        body: `Przepraszamy, nie obsługujemy tego adresu.
-Prosimy skontaktować się z inną firmą.`
-    });
-}
+        } else {
+
+            await twilio.messages.create({
+                from: process.env.TWILIO_PHONE,
+                to: phone,
+                body: `Przepraszamy, nie obsługujemy tego adresu.`
+            });
+
+        }
+
+    } catch (err) {
+        console.error("BŁĄD SMS:", err);
+    }
+
+    res.send('<Response></Response>');
+});
 
 // --- URUCHOMIENIE SERWERA ---
 const PORT = process.env.PORT || 3000;
