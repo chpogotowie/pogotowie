@@ -16,6 +16,7 @@ function normalize(text) {
 
 function simplifyAddress(text) {
     return normalize(text)
+.replace(/\bul\w*\b/g, '')   // usuwa wszystkie formy "ulica"
         .split(' ')
         .filter(word => word.length > 2)
         .map(word => {
@@ -26,7 +27,8 @@ function simplifyAddress(text) {
                 .replace(/ie$/, 'a')
                 .replace(/y$/, 'a');
         })
-        .join(' ');
+        .join(' ')
+        .trim();
 }
 
 const express = require('express');
@@ -194,6 +196,30 @@ const addressText = normalize(data.address || "");
 const fullAddress = simplifyAddress(
     `${data.city} ${data.street} ${data.number}`
 );
+
+console.log("FULL RAW:", fullAddress);
+console.log("FULL JSON:", JSON.stringify(fullAddress));
+console.log("FULL LENGTH:", fullAddress.length);
+
+const allAddresses = [
+    ...mpglAddresses,
+    ...sdsmAddresses,
+    ...barbaraAddresses
+];
+
+allAddresses.forEach(addr => {
+    const simplified = simplifyAddress(addr);
+
+    if (
+        fullAddress.includes(simplified) ||
+        simplified.includes(fullAddress)
+    ) {
+        console.log("MATCH:", simplified);
+    } else {
+        console.log("BRAK:", simplified);
+    }
+});
+
 
 console.log('Złożony adres:', fullAddress);
 
