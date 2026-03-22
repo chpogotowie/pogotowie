@@ -182,7 +182,19 @@ const fullAddress = normalize(
 
 console.log('Złożony adres:', fullAddress);
 
+console.log("SZUKAM:", fullAddress);
+
+console.log("=== LISTA MPGL ===");
+mpglAddresses.slice(0, 5).forEach(addr => console.log(addr));
+
+const found = mpglAddresses.find(addr => 
+    fullAddress.includes(addr) || addr.includes(fullAddress)
+);
+
+console.log("ZNALEZIONY:", found);
+
 let firma = null;
+
 
 if (mpglAddresses.some(addr => 
     fullAddress.includes(addr) || addr.includes(fullAddress)
