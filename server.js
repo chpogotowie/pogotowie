@@ -63,7 +63,7 @@ app.post('/voice', (req, res) => {
 
     twiml.say(
         { language: 'pl-PL', voice: 'alice' },
-        'Pogotowie awaryjne. Informujemy,  e rozmowa jest nagrywana. Prosz  o podanie imienia, nazwiska i dok adnego adresu awarii.'
+        'Pogotowie awaryjne. Informujemy,  e rozmowa jest nagrywana. Prosze o podanie imienia, nazwiska i dokladnego adresu awarii.'
     );
 
     twiml.record({
@@ -78,7 +78,7 @@ app.post('/voice', (req, res) => {
 app.post('/process-recording', async (req, res) => {
 
     const twiml = new VoiceResponse();
-    twiml.say('Dzi kujemy, zg oszenie przyj te');
+    twiml.say('Dziekujemy, zgloszenie przyjete');
     res.type('text/xml');
     res.send(twiml.toString());
 
@@ -313,7 +313,7 @@ console.log("?? WYSY AM SMS");
 const msg = await twilio.messages.create({
     from: process.env.TWILIO_PHONE,
     to: w,
-    body: `Nowe zg oszenie:
+    body: `Nowe zgloszenie:
 Firma: ${firma || 'NIEZNANA'}
 Imi : ${data.name}
 Adres: ${data.city}, ul. ${data.street} ${data.number}
@@ -334,13 +334,119 @@ console.log(" wys ano do:", w);
 }
 });
 
+
+
 // --- SMSY PRZYCHODZ CE ---
-app.post('/sms', (req, res) => {
+app.post('/sms', async (req, res) => {
     const incomingMsg = req.body.Body;
-    const twiml = new MessagingResponse();
-    twiml.message('Dzi kujemy za zg oszenie');
-    res.type('text/xml');
-    res.send(twiml.toString());
+
+    console.log("SMS OD KLIENTA:", incomingMsg);
+
+    try {
+        // --- GPT ANALIZA ---
+        const gptResponse = await axios.post(
+            'https://api.openai.com/v1/chat/completions',
+            {
+                model: 'gpt-4o-mini',
+                messages: [
+                    {
+                        role: 'system',
+                        content: `Wyciągnij dane z tekstu i zwróć JSON:
+{
+"name": "",
+"city": "",
+"street": "",
+"number": "",
+"problem": ""
+}`
+                    },
+                    {
+                        role: 'user',
+                        content: incomingMsg
+                    }
+                ]
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+                }
+            }
+        );
+
+        let raw = gptResponse.data.choices[0].message.content;
+        raw = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+
+        const data = JSON.parse(raw);
+
+        console.log("DANE Z SMS:", data);
+
+        const fullAddress = simplifyAddress(
+            `${data.city} ${data.street} ${data.number}`
+        );
+
+        let firma = null;
+
+        if (mpglAddresses.some(addr => {
+            const s = simplifyAddress(addr);
+            return fullAddress.includes(s) || s.includes(fullAddress);
+        })) {
+            firma = 'MPGL';
+
+        } else if (sdsmAddresses.some(addr => {
+            const s = simplifyAddress(addr);
+            return fullAddress.includes(s) || s.includes(fullAddress);
+        })) {
+            firma = 'SDSM';
+
+        } else if (barbaraAddresses.some(addr => {
+            const s = simplifyAddress(addr);
+            return fullAddress.includes(s) || s.includes(fullAddress);
+        })) {
+            firma = 'SM BARBARA';
+        }
+
+        const isValidAddress = !!firma;
+
+        console.log("FIRMA:", firma);
+        console.log("OBSŁUGIWANY:", isValidAddress);
+
+        // JEŚLI POPRAWNY
+        if (isValidAddress) {
+
+            // SMS do pracownika
+            await twilio.messages.create({
+                from: process.env.TWILIO_PHONE,
+                to: '+48660687951',
+                body: `Nowe zgłoszenie (SMS):
+Firma: ${firma}
+Imię: ${data.name}
+Adres: ${data.city}, ul. ${data.street} ${data.number}
+Problem: ${data.problem}`
+            });
+
+            // SMS do klienta
+            await twilio.messages.create({
+                from: process.env.TWILIO_PHONE,
+                to: req.body.From,
+                body: `Dziękujemy, zgłoszenie przyjęte:
+${data.city}, ul. ${data.street} ${data.number}`
+            });
+
+        } else {
+            // NADAL NIE OBSŁUGIWANY
+            await twilio.messages.create({
+                from: process.env.TWILIO_PHONE,
+                to: req.body.From,
+                body: `Przepraszamy, nie obsługujemy tego adresu.
+Prosimy skontaktować się z inną firmą.`
+            });
+        }
+
+    } catch (err) {
+        console.error("BŁĄD SMS:", err);
+    }
+
+    res.send('<Response></Response>');
 });
 
 // --- URUCHOMIENIE SERWERA ---
