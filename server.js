@@ -274,6 +274,33 @@ console.log('Firma:', firma);
 console.log('Czy adres obsługiwany:', isValidAddress);
 
 
+// --- SMS DO KLIENTA ---
+if (req.body.From) {
+    if (isValidAddress) {
+        await twilio.messages.create({
+            from: process.env.TWILIO_PHONE,
+            to: req.body.From,
+            body: `Dziękujemy za zgłoszenie
+Adres: ${data.city}, ul. ${data.street} ${data.number}
+Firma: ${firma}`
+        });
+    } else {
+        await twilio.messages.create({
+            from: process.env.TWILIO_PHONE,
+            to: req.body.From,
+            body: `Przepraszamy, nie obsługujemy tego adresu:
+${data.city}, ul. ${data.street} ${data.number}
+
+Jeżeli adres jest nieprawidłowy, wyślij SMS w formacie:
+
+Imię Nazwisko:
+Adres:
+Problem:`
+        });
+    }
+}
+
+
         // --- WYSY ANIE SMS DO PRACOWNIK W ---
 
 
