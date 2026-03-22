@@ -6,7 +6,12 @@ function normalize(text) {
     return text
         .toLowerCase()
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, '');
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\./g, '')        // usuwa kropki (ul.)
+        .replace(/,/g, '')         // usuwa przecinki
+        .replace(/\s+/g, ' ')      // usuwa podwójne spacje
+        .replace(/\s([0-9]+)\s([a-z])/g, '$1$2') // 6 a -> 6a
+        .trim();
 }
 
 const express = require('express');
@@ -172,25 +177,34 @@ https://twojastrona.pl/zgloszenie`
 const addressText = normalize(data.address || "");
 
 const fullAddress = normalize(
-    `${data.city} ul ${data.street} ${data.number}`
+    `${data.city} ${data.street} ${data.number}`
 );
 
-console.log('Z o ony adres:', fullAddress);
+console.log('Złożony adres:', fullAddress);
 
 let firma = null;
 
-if (mpglAddresses.some(addr => fullAddress.includes(addr))) {
+if (mpglAddresses.some(addr => 
+    fullAddress.includes(addr) || addr.includes(fullAddress)
+)) {
     firma = 'MPGL';
-} else if (sdsmAddresses.some(addr => fullAddress.includes(addr))) {
+
+} else if (sdsmAddresses.some(addr => 
+    fullAddress.includes(addr) || addr.includes(fullAddress)
+)) {
     firma = 'SDSM';
-} else if (barbaraAddresses.some(addr => fullAddress.includes(addr))) {
+
+} else if (barbaraAddresses.some(addr => 
+    fullAddress.includes(addr) || addr.includes(fullAddress)
+)) {
     firma = 'SM BARBARA';
 }
 
 const isValidAddress = !!firma;
 
 console.log('Firma:', firma);
-console.log('Czy adres obs ugiwany:', isValidAddress);
+console.log('Czy adres obsługiwany:', isValidAddress);
+
 
         // --- WYSY ANIE SMS DO PRACOWNIK W ---
 
