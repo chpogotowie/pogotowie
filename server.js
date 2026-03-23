@@ -1,11 +1,33 @@
 require('dotenv').config();
 
+const express = require('express');
+const bodyParser = require('body-parser');
+const { VoiceResponse } = require('twilio').twiml;
+const axios = require('axios');
+const FormData = require('form-data');
+const fs = require('fs');
+
+const BASE_URL = process.env.BASE_URL || 'https://pogotowie-production.up.railway.app';
+const DOJAZD_MINUT = parseInt(process.env.DOJAZD_MINUT || '60');
+
+const twilioClient = require('twilio')(
+    process.env.TWILIO_SID,
+    process.env.TWILIO_AUTH_TOKEN
+);
+
+const app = express();
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+
+const sessions = new Map();
+
 function normalize(text) {
     if (!text) return '';
     return text
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[-]/g, ' ')
         .replace(/\./g, '')
         .replace(/,/g, '')
         .replace(/\s+/g, ' ')
@@ -37,42 +59,16 @@ function simplifyAddress(text) {
         .trim();
 }
 
-function parseAddress(text) {
-    const parts = simplifyAddress(text).split(' ').filter(p => p.length > 1);
-    return {
-        city: parts[0] || '',
-        street: parts[1] || ''
-    };
+function tokenize(text) {
+    return simplifyAddress(text).split(' ').filter(p => p.length > 0);
 }
 
-function addressesMatch(inputCity, inputStreet, candidateText) {
-    const candidate = parseAddress(candidateText);
-    const cityMatch = candidate.city === inputCity;
-    const streetMatch = candidate.street === inputStreet;
-    const onlyStreet = !candidate.street && candidate.city === inputStreet;
-    return (cityMatch && streetMatch) || onlyStreet;
+function addressesMatch(inputCityTokens, inputStreetTokens, candidateText) {
+    const candidateTokens = tokenize(candidateText);
+    const cityMatch = inputCityTokens.every(t => candidateTokens.includes(t));
+    const streetMatch = inputStreetTokens.every(t => candidateTokens.includes(t));
+    return cityMatch && streetMatch;
 }
-
-const express = require('express');
-const bodyParser = require('body-parser');
-const { VoiceResponse } = require('twilio').twiml;
-const axios = require('axios');
-const fs = require('fs');
-
-const twilioClient = require('twilio')(
-    process.env.TWILIO_SID,
-    process.env.TWILIO_AUTH_TOKEN
-);
-
-const app = express();
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
-
-const BASE_URL = process.env.BASE_URL || 'https://pogotowie-production.up.railway.app';
-const DOJAZD_MINUT = parseInt(process.env.DOJAZD_MINUT || '60');
-
-// Sesje połączeń głosowych
-const sessions = new Map();
 
 function loadAddresses(file) {
     try {
@@ -93,10 +89,10 @@ const barbaraAddresses = loadAddresses('adresy/sm-barbara.txt');
 console.log(`Załadowano adresów: MPGL=${mpglAddresses.length}, SDSM=${sdsmAddresses.length}, Barbara=${barbaraAddresses.length}`);
 
 function findFirma(city, street) {
-    const inputCity = stemWord(normalize(city)).trim();
-    const inputStreet = stemWord(normalize(street)).trim();
+    const inputCityTokens = tokenize(city);
+    const inputStreetTokens = tokenize(street);
 
-    console.log(`SZUKAM: miasto="${inputCity}" ulica="${inputStreet}"`);
+    console.log(`SZUKAM: miasto=[${inputCityTokens}] ulica=[${inputStreetTokens}]`);
 
     const lists = [
         { name: 'MPGL', list: mpglAddresses },
@@ -106,7 +102,7 @@ function findFirma(city, street) {
 
     for (const { name, list } of lists) {
         const match = list.find(addr => {
-            const result = addressesMatch(inputCity, inputStreet, addr);
+            const result = addressesMatch(inputCityTokens, inputStreetTokens, addr);
             if (result) console.log(`DOPASOWANIE ${name}: "${addr}"`);
             return result;
         });
@@ -124,9 +120,6 @@ function godzinaDojazdu() {
     return `${h}:${m}`;
 }
 
-// --- POŁĄCZENIA GŁOSOWE ---
-
-// Krok 1: Pytanie o miasto
 app.post('/voice', (req, res) => {
     const callSid = req.body.CallSid;
     const callerPhone = req.body.From || '';
@@ -143,19 +136,14 @@ app.post('/voice', (req, res) => {
         method: 'POST'
     });
 
-    gather.say(
-        { language: 'pl-PL', voice: 'alice' },
-        'Pogotowie awaryjne. Proszę podać miasto:'
-    );
-
-    twiml.say({ language: 'pl-PL', voice: 'alice' }, 'Nie usłyszałem miasta. Proszę spróbować ponownie.');
+    gather.say({ language: 'pl-PL', voice: 'alice' }, 'Pogotowie awaryjne. Proszę podać miasto:');
+    twiml.say({ language: 'pl-PL', voice: 'alice' }, 'Nie usłyszałem miasta. Spróbuj ponownie.');
     twiml.redirect(`${BASE_URL}/voice`);
 
     res.type('text/xml');
     res.send(twiml.toString());
 });
 
-// Krok 2: Pytanie o ulicę i numer
 app.post('/voice/krok2', (req, res) => {
     const callSid = req.body.CallSid;
     const city = req.body.SpeechResult || '';
@@ -176,19 +164,14 @@ app.post('/voice/krok2', (req, res) => {
         method: 'POST'
     });
 
-    gather.say(
-        { language: 'pl-PL', voice: 'alice' },
-        'Proszę podać ulicę wraz z numerem domu i mieszkania:'
-    );
-
-    twiml.say({ language: 'pl-PL', voice: 'alice' }, 'Nie usłyszałem ulicy. Proszę spróbować ponownie.');
+    gather.say({ language: 'pl-PL', voice: 'alice' }, 'Proszę podać ulicę wraz z numerem domu i mieszkania:');
+    twiml.say({ language: 'pl-PL', voice: 'alice' }, 'Nie usłyszałem ulicy. Spróbuj ponownie.');
     twiml.redirect(`${BASE_URL}/voice/krok2`);
 
     res.type('text/xml');
     res.send(twiml.toString());
 });
 
-// Krok 3: Pytanie o awarię
 app.post('/voice/krok3', (req, res) => {
     const callSid = req.body.CallSid;
     const street = req.body.SpeechResult || '';
@@ -209,19 +192,14 @@ app.post('/voice/krok3', (req, res) => {
         method: 'POST'
     });
 
-    gather.say(
-        { language: 'pl-PL', voice: 'alice' },
-        'Proszę opisać awarię:'
-    );
-
-    twiml.say({ language: 'pl-PL', voice: 'alice' }, 'Nie usłyszałem opisu. Proszę spróbować ponownie.');
+    gather.say({ language: 'pl-PL', voice: 'alice' }, 'Proszę opisać awarię:');
+    twiml.say({ language: 'pl-PL', voice: 'alice' }, 'Nie usłyszałem opisu. Spróbuj ponownie.');
     twiml.redirect(`${BASE_URL}/voice/krok3`);
 
     res.type('text/xml');
     res.send(twiml.toString());
 });
 
-// Krok 4: Podziękowanie + przetwarzanie w tle
 app.post('/voice/krok4', (req, res) => {
     const callSid = req.body.CallSid;
     const problem = req.body.SpeechResult || '';
@@ -236,10 +214,7 @@ app.post('/voice/krok4', (req, res) => {
 
     const twiml = new VoiceResponse();
     twiml.pause({ length: 6 });
-    twiml.say(
-        { language: 'pl-PL', voice: 'alice' },
-        `Dziękujemy za zgłoszenie. Przewidywany dojazd do godziny ${godz}.`
-    );
+    twiml.say({ language: 'pl-PL', voice: 'alice' }, `Dziękujemy za zgłoszenie. Przewidywany dojazd do godziny ${godz}.`);
 
     res.type('text/xml');
     res.send(twiml.toString());
@@ -273,8 +248,10 @@ async function processVoiceSession(callSid, session) {
 }
 Zasady:
 - popraw błędy wymowy i zapisu (np. "swietochlowice" → "Świętochłowice")
-- rozdziel ulicę i numer budynku (np. "pierwszego maja dwanaście" → street: "1 Maja", number: "12")
-- flat to numer mieszkania jeśli podano (np. "mieszkanie pięć" → "5"), jeśli nie podano wpisz "BRAK"
+- UWAGA: nazwy ulic w Polsce często zaczynają się od liczby np. "11 Listopada", "1 Maja", "3 Maja", "29 Stycznia" - cała nazwa to ulica, nie mylić z numerem budynku
+- numer budynku to liczba podana PO nazwie ulicy, np. "11 Listopada 64" → street: "11 Listopada", number: "64"
+- flat to numer mieszkania, jeśli podano po "/", np. "64/5" → number: "64", flat: "5"
+- liczby wymawiane np. "sześćdziesiąt cztery" → "64", "pięć" → "5"
 - jeśli brak danych wpisz "BRAK"
 - zwróć tylko JSON`
                     },
@@ -318,7 +295,6 @@ Zasady:
 
         console.log(`[${callSid}] Firma: ${firma}, Obsługiwany: ${isValidAddress}`);
 
-        // SMS do klienta
         if (callerPhone) {
             if (isValidAddress) {
                 await twilioClient.messages.create({
@@ -335,10 +311,7 @@ Zasady:
             }
         }
 
-        // SMS do pracowników
-        const workers = [
-            '+48660687951',
-        ];
+        const workers = ['+48660687951'];
 
         for (const w of workers) {
             const msg = await twilioClient.messages.create({
@@ -359,7 +332,6 @@ Obsługiwany: ${isValidAddress ? 'TAK' : 'NIE'}`
     }
 }
 
-// --- SMSY PRZYCHODZĄCE ---
 app.post('/sms', async (req, res) => {
     const incomingMsg = req.body.Body || '';
     const phone = req.body.From || '';
@@ -386,8 +358,9 @@ app.post('/sms', async (req, res) => {
 }
 Zasady:
 - popraw błędy zapisu (np. "swietochlowice" → "Świętochłowice")
-- rozdziel ulicę i numer budynku
-- flat to numer mieszkania jeśli podano, jeśli nie wpisz "BRAK"
+- UWAGA: nazwy ulic w Polsce często zaczynają się od liczby np. "11 Listopada", "1 Maja", "3 Maja" - cała nazwa to ulica, nie mylić z numerem budynku
+- numer budynku to liczba podana PO nazwie ulicy, np. "11 Listopada 64" → street: "11 Listopada", number: "64"
+- flat to numer mieszkania, jeśli podano po "/", np. "64/5" → number: "64", flat: "5"
 - jeśli brak danych wpisz "BRAK"
 - zwróć tylko JSON`
                     },
@@ -440,6 +413,5 @@ Awaria: ${data.problem}`
     }
 });
 
-// --- URUCHOMIENIE SERWERA ---
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Serwer działa na porcie ${PORT}`));
