@@ -1,8 +1,7 @@
-console.log("TEST NOWEGO KODU 999");
-
 require('dotenv').config();
 
 function normalize(text) {
+    if (!text) return '';
     return text
         .toLowerCase()
         .normalize("NFD")
@@ -10,332 +9,253 @@ function normalize(text) {
         .replace(/\./g, '')
         .replace(/,/g, '')
         .replace(/\s+/g, ' ')
-        .replace(/\s([0-9]+)\s([a-z])/g, '$1$2')
         .trim();
+}
+
+function stemWord(word) {
+    return word
+        .replace(/ej$/, 'a')
+        .replace(/ą$/, 'a')
+        .replace(/ego$/, '')
+        .replace(/owie$/, '')
+        .replace(/ie$/, 'a')
+        .replace(/iego$/, '')
+        .replace(/owy$/, 'owa')
+        .replace(/owe$/, 'owa')
+        .replace(/owym$/, 'owa')
+        .replace(/y$/, 'a');
 }
 
 function simplifyAddress(text) {
     return normalize(text)
-.replace(/\bul\w*\b/g, '')   // usuwa wszystkie formy "ulica"
+        .replace(/\b(ul|ulica|al|aleja|aleje|pl|plac|os|osiedle|skwer)\b/g, '')
         .split(' ')
-        .filter(word => word.length > 2)
-        .map(word => {
-            return word
-                .replace(/ej$/, 'a')
-                .replace(/ą$/, 'a')
-                .replace(/ego$/, '')
-                .replace(/ie$/, 'a')
-                .replace(/y$/, 'a');
-        })
+        .filter(word => word.length > 1)
+        .map(stemWord)
         .join(' ')
+        .replace(/\s+/g, ' ')
         .trim();
+}
+
+function parseAddress(text) {
+    const parts = simplifyAddress(text).split(' ').filter(p => p.length > 1);
+    return {
+        city: parts[0] || '',
+        street: parts[1] || ''
+    };
+}
+
+function addressesMatch(inputCity, inputStreet, candidateText) {
+    const candidate = parseAddress(candidateText);
+    const cityMatch = candidate.city === inputCity;
+    const streetMatch = candidate.street === inputStreet;
+    const onlyStreet = !candidate.street && candidate.city === inputStreet;
+    return (cityMatch && streetMatch) || onlyStreet;
 }
 
 const express = require('express');
 const bodyParser = require('body-parser');
-const { MessagingResponse, VoiceResponse } = require('twilio').twiml;
+const { VoiceResponse } = require('twilio').twiml;
 const axios = require('axios');
-const FormData = require('form-data');
 const fs = require('fs');
 
-const twilio = require('twilio')(
+const twilioClient = require('twilio')(
     process.env.TWILIO_SID,
     process.env.TWILIO_AUTH_TOKEN
 );
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+
+const BASE_URL = process.env.BASE_URL || 'https://pogotowie-production.up.railway.app';
+const DOJAZD_MINUT = parseInt(process.env.DOJAZD_MINUT || '60');
+
+// Sesje połączeń głosowych
+const sessions = new Map();
+
 function loadAddresses(file) {
-    return fs.readFileSync(file, 'utf-8')
-        .split('\n')
-        .map(line => normalize(line.trim()))
-        .filter(line => line.length > 5);
+    try {
+        return fs.readFileSync(file, 'utf-8')
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
+    } catch (e) {
+        console.error(`Błąd wczytywania pliku ${file}:`, e.message);
+        return [];
+    }
 }
 
 const mpglAddresses = loadAddresses('adresy/mpgl.txt');
 const sdsmAddresses = loadAddresses('adresy/sdsm.txt');
 const barbaraAddresses = loadAddresses('adresy/sm-barbara.txt');
-   
 
-// --- PO  CZENIA G OSOWE ---
+console.log(`Załadowano adresów: MPGL=${mpglAddresses.length}, SDSM=${sdsmAddresses.length}, Barbara=${barbaraAddresses.length}`);
+
+function findFirma(city, street) {
+    const inputCity = stemWord(normalize(city)).trim();
+    const inputStreet = stemWord(normalize(street)).trim();
+
+    console.log(`SZUKAM: miasto="${inputCity}" ulica="${inputStreet}"`);
+
+    const lists = [
+        { name: 'MPGL', list: mpglAddresses },
+        { name: 'SDSM', list: sdsmAddresses },
+        { name: 'SM BARBARA', list: barbaraAddresses },
+    ];
+
+    for (const { name, list } of lists) {
+        const match = list.find(addr => {
+            const result = addressesMatch(inputCity, inputStreet, addr);
+            if (result) console.log(`DOPASOWANIE ${name}: "${addr}"`);
+            return result;
+        });
+        if (match) return name;
+    }
+
+    return null;
+}
+
+function godzinaDojazdu() {
+    const teraz = new Date();
+    teraz.setMinutes(teraz.getMinutes() + DOJAZD_MINUT);
+    const h = teraz.getHours().toString().padStart(2, '0');
+    const m = teraz.getMinutes().toString().padStart(2, '0');
+    return `${h}:${m}`;
+}
+
+// --- POŁĄCZENIA GŁOSOWE ---
+
+// Krok 1: Pytanie o miasto
 app.post('/voice', (req, res) => {
-    const twiml = new VoiceResponse();
+    const callSid = req.body.CallSid;
+    const callerPhone = req.body.From || '';
 
-    twiml.say(
+    sessions.set(callSid, { callerPhone });
+
+    const twiml = new VoiceResponse();
+    const gather = twiml.gather({
+        input: 'speech',
+        language: 'pl-PL',
+        speechTimeout: 'auto',
+        timeout: 10,
+        action: `${BASE_URL}/voice/krok2`,
+        method: 'POST'
+    });
+
+    gather.say(
         { language: 'pl-PL', voice: 'alice' },
-        'Pogotowie awaryjne. Informujemy,  e rozmowa jest nagrywana. Prosze o podanie imienia, nazwiska i dokladnego adresu awarii.'
+        'Pogotowie awaryjne. Proszę podać miasto:'
     );
 
-    twiml.record({
-        maxLength: 120,
-        action: 'https://pogotowie-production.up.railway.app/process-recording',
-    });
+    twiml.say({ language: 'pl-PL', voice: 'alice' }, 'Nie usłyszałem miasta. Proszę spróbować ponownie.');
+    twiml.redirect(`${BASE_URL}/voice`);
 
     res.type('text/xml');
     res.send(twiml.toString());
 });
-// --- OBS UGA NAGRANIA ---
-app.post('/process-recording', async (req, res) => {
+
+// Krok 2: Pytanie o ulicę i numer
+app.post('/voice/krok2', (req, res) => {
+    const callSid = req.body.CallSid;
+    const city = req.body.SpeechResult || '';
+
+    const session = sessions.get(callSid) || {};
+    session.city = city;
+    sessions.set(callSid, session);
+
+    console.log(`[${callSid}] Miasto: "${city}"`);
 
     const twiml = new VoiceResponse();
-    twiml.say('Dziekujemy, zgloszenie przyjete');
+    const gather = twiml.gather({
+        input: 'speech',
+        language: 'pl-PL',
+        speechTimeout: 'auto',
+        timeout: 10,
+        action: `${BASE_URL}/voice/krok3`,
+        method: 'POST'
+    });
+
+    gather.say(
+        { language: 'pl-PL', voice: 'alice' },
+        'Proszę podać ulicę wraz z numerem domu i mieszkania:'
+    );
+
+    twiml.say({ language: 'pl-PL', voice: 'alice' }, 'Nie usłyszałem ulicy. Proszę spróbować ponownie.');
+    twiml.redirect(`${BASE_URL}/voice/krok2`);
+
+    res.type('text/xml');
+    res.send(twiml.toString());
+});
+
+// Krok 3: Pytanie o awarię
+app.post('/voice/krok3', (req, res) => {
+    const callSid = req.body.CallSid;
+    const street = req.body.SpeechResult || '';
+
+    const session = sessions.get(callSid) || {};
+    session.street = street;
+    sessions.set(callSid, session);
+
+    console.log(`[${callSid}] Ulica: "${street}"`);
+
+    const twiml = new VoiceResponse();
+    const gather = twiml.gather({
+        input: 'speech',
+        language: 'pl-PL',
+        speechTimeout: 'auto',
+        timeout: 15,
+        action: `${BASE_URL}/voice/krok4`,
+        method: 'POST'
+    });
+
+    gather.say(
+        { language: 'pl-PL', voice: 'alice' },
+        'Proszę opisać awarię:'
+    );
+
+    twiml.say({ language: 'pl-PL', voice: 'alice' }, 'Nie usłyszałem opisu. Proszę spróbować ponownie.');
+    twiml.redirect(`${BASE_URL}/voice/krok3`);
+
+    res.type('text/xml');
+    res.send(twiml.toString());
+});
+
+// Krok 4: Podziękowanie + przetwarzanie w tle
+app.post('/voice/krok4', (req, res) => {
+    const callSid = req.body.CallSid;
+    const problem = req.body.SpeechResult || '';
+
+    const session = sessions.get(callSid) || {};
+    session.problem = problem;
+    sessions.set(callSid, session);
+
+    console.log(`[${callSid}] Awaria: "${problem}"`);
+
+    const godz = godzinaDojazdu();
+
+    const twiml = new VoiceResponse();
+    twiml.pause({ length: 6 });
+    twiml.say(
+        { language: 'pl-PL', voice: 'alice' },
+        `Dziękujemy za zgłoszenie. Przewidywany dojazd do godziny ${godz}.`
+    );
+
     res.type('text/xml');
     res.send(twiml.toString());
 
-    try {
-
-        const recordingUrl = req.body.RecordingUrl;
-
-        // Pobranie nagrania
-        const response = await axios.get(recordingUrl + '.wav', {
-            responseType: 'arraybuffer',
-            auth: {
-                username: process.env.TWILIO_SID,
-                password: process.env.TWILIO_AUTH_TOKEN
-            }
-        });
-const audioBuffer = Buffer.from(response.data);
-
-console.log("? NAGRANIE POBRANE");
-
-// Wysy amy do OpenAI Whisper
-const formData = new FormData();
-formData.append('file', audioBuffer, 'nagranie.wav'); // ?? TO MUSI BY 
-formData.append('model', 'whisper-1');
-
-const aiResponse = await axios.post(
-    'https://api.openai.com/v1/audio/transcriptions',
-    formData,
-    {
-        headers: {
-            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-            ...formData.getHeaders()
-        }
-    }
-);
-
-        const transcribedText = aiResponse.data.text;
-        console.log('Transkrypcja:', transcribedText);
-console.log("TEKST Z WHISPER:", transcribedText);
-console.log("? WHISPER OK");
-
-//  ANALIZA TEKSTU (GPT)
-const gptResponse = await axios.post(
-    'https://api.openai.com/v1/chat/completions',
-    {
-        model: 'gpt-4o-mini',
-        messages: [
-            {
-                role: 'system',
-                content: `Wyci gnij dane z tekstu i zwr   JSON:
-{
-"name": "",
-"city": "",
-"street": "",
-"number": "",
-"problem": ""
-}
-
-Zasady:
-- rozdziel ulic  i numer (np. "1 maja" i "2-4")
-- rozpoznaj miasto nawet je li jest na ko cu
-- popraw b  dy (np. "swietochlowice"   " wi toch owice")
-- je li brak danych wpisz "BRAK"`
-
-            },
-            {
-                role: 'user',
-                content: transcribedText
-            }
-        ]
-    },
-    {
-        headers: {
-            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
-        }
-    }
-);
-
-let raw = gptResponse.data.choices[0].message.content;
-
-console.log("RAW GPT:", raw);
-
-// usuwa ```json ```
-raw = raw.replace(/```json/g, '').replace(/```/g, '').trim();
-
-const data = JSON.parse(raw);
-console.log("? GPT OK");
-
-console.log("Dane po parsowaniu:", data);
-
-console.log('Dane:', data);
-
-const isBadData =
-    !data.name || data.name === "BRAK" ||
-    !data.city || data.city === "BRAK" ||
-    !data.street || data.street === "BRAK" ||
-    !data.number || data.number === "BRAK" ||
-    !data.problem || data.problem === "BRAK";
-if (isBadData) {
-    console.log("? NIE ROZPOZNANO DANYCH - SMS do klienta");
-
-
-    await twilio.messages.create({
-        from: process.env.TWILIO_PHONE,
-        to: req.body.From, // ?? klient
-        body: `Nie uda o si  poprawnie rozpozna  zg oszenia.
-Prosimy o wype nienie formularza:
-https://twojastrona.pl/zgloszenie`
+    processVoiceSession(callSid, session).catch(err => {
+        console.error(`[${callSid}] Błąd przetwarzania sesji:`, err);
     });
-
-    return; // ?? STOP   nie idzie dalej do pracownik w
-}
-
-
-const fullAddress = simplifyAddress(
-    `${data.city} ${data.street} ${data.number}`
-);
-
-console.log("FULL RAW:", fullAddress);
-console.log("FULL JSON:", JSON.stringify(fullAddress));
-console.log("FULL LENGTH:", fullAddress.length);
-
-const allAddresses = [
-    ...mpglAddresses,
-    ...sdsmAddresses,
-    ...barbaraAddresses
-];
-
-allAddresses.forEach(addr => {
-    const simplified = simplifyAddress(addr);
-
-    if (
-        fullAddress.includes(simplified) ||
-        simplified.includes(fullAddress)
-    ) {
-        console.log("MATCH:", simplified);
-    } else {
-        console.log("BRAK:", simplified);
-    }
 });
 
-
-console.log('Złożony adres:', fullAddress);
-
-console.log("SZUKAM:", fullAddress);
-
-console.log("=== LISTA MPGL ===");
-mpglAddresses.slice(0, 5).forEach(addr => {
-    console.log("MPGL RAW:", addr);
-    console.log("MPGL SIMPLIFIED:", simplifyAddress(addr));
-});
-
-const found = mpglAddresses.find(addr => {
-    const simplifiedAddr = simplifyAddress(addr);
-
-    return fullAddress === simplifiedAddr ||
-           simplifiedAddr.includes(fullAddress);
-});
-
-console.log("ZNALEZIONY:", found);
-
-let firma = null;
-
-if (mpglAddresses.some(addr => {
-    const simplifiedAddr = simplifyAddress(addr);
-    return fullAddress === simplifiedAddr;
-})) {
-    firma = 'MPGL';
-
-} else if (sdsmAddresses.some(addr => {
-    const simplifiedAddr = simplifyAddress(addr);
-    return fullAddress === simplifiedAddr;
-})) {
-    firma = 'SDSM';
-
-} else if (barbaraAddresses.some(addr => {
-    const simplifiedAddr = simplifyAddress(addr);
-    return fullAddress === simplifiedAddr;
-})) {
-    firma = 'SM BARBARA';
-}
-
-const isValidAddress = !!firma;
-
-console.log('Firma:', firma);
-console.log('Czy adres obsługiwany:', isValidAddress);
-
-// --- SMS DO KLIENTA ---
-if (req.body.From) {
-    if (isValidAddress) {
-        await twilio.messages.create({
-            from: process.env.TWILIO_PHONE,
-            to: req.body.From,
-            body: `Dziękujemy za zgłoszenie
-Adres: ${data.city}, ul. ${data.street} ${data.number}
-Firma: ${firma}`
-        });
-    } else {
-        await twilio.messages.create({
-            from: process.env.TWILIO_PHONE,
-            to: req.body.From,
-            body: `Przepraszamy, nie obsługujemy tego adresu:
-${data.city}, ul. ${data.street} ${data.number}
-
-Jeżeli adres jest nieprawidłowy, wyślij SMS w formacie:
-
-Imię Nazwisko:
-Adres:
-Problem:`
-        });
-    }
-}
-
-
-        // --- WYSY ANIE SMS DO PRACOWNIK W ---
-
-
-        const workers = [
-            '+48660687951', // numer pracownika 1
-        ];
-console.log("?? WYSY AM SMS");
-
-for (const w of workers) {
-    const msg = await twilio.messages.create({
-        from: process.env.TWILIO_PHONE,
-        to: w,
-        body: `Nowe zgloszenie:
-Firma: ${firma || 'NIEZNANA'}
-Telefon: ${req.body.From}
-Adres: ${data.city}, ul. ${data.street} ${data.number}
-Problem: ${data.problem}
-Obslugiwany: ${isValidAddress ? 'TAK' : 'NIE'}`
-    });
-
-    console.log("SID:", msg.sid);
-    console.log("STATUS:", msg.status);
-    console.log("wyslano do:", w);
-}
-
-        // Odpowied  dla klienta
-      
-   } catch (err) {
-    console.error(err);
-    res.status(500).send('Blad przetwarzania nagrania');
-}
-});
-
-
-
-// --- SMSY PRZYCHODZ CE ---
-app.post('/sms', async (req, res) => {
-    const incomingMsg = req.body.Body;
-
-    console.log("SMS OD KLIENTA:", incomingMsg);
-
+async function processVoiceSession(callSid, session) {
     try {
+        const { callerPhone, city = '', street = '', problem = '' } = session;
+        sessions.delete(callSid);
 
-        // --- GPT ANALIZA ---
+        console.log(`[${callSid}] Przetwarzam: miasto="${city}" ulica="${street}" awaria="${problem}"`);
+
         const gptResponse = await axios.post(
             'https://api.openai.com/v1/chat/completions',
             {
@@ -343,104 +263,183 @@ app.post('/sms', async (req, res) => {
                 messages: [
                     {
                         role: 'system',
-                        content: `Wyciągnij dane z tekstu i zwróć JSON:
+                        content: `Wyciągnij dane adresowe z tekstu i zwróć JSON bez komentarzy:
 {
-"city": "",
-"street": "",
-"number": "",
-"flat": "",
-"problem": ""
-}`
+  "city": "",
+  "street": "",
+  "number": "",
+  "flat": "",
+  "problem": ""
+}
+Zasady:
+- popraw błędy wymowy i zapisu (np. "swietochlowice" → "Świętochłowice")
+- rozdziel ulicę i numer budynku (np. "pierwszego maja dwanaście" → street: "1 Maja", number: "12")
+- flat to numer mieszkania jeśli podano (np. "mieszkanie pięć" → "5"), jeśli nie podano wpisz "BRAK"
+- jeśli brak danych wpisz "BRAK"
+- zwróć tylko JSON`
                     },
                     {
                         role: 'user',
-                        content: incomingMsg
+                        content: `Miasto: ${city}\nUlica i numer: ${street}\nAwaria: ${problem}`
                     }
                 ]
             },
-            {
-                headers: {
-                    'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
-                }
-            }
+            { headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` } }
         );
 
-        let raw = gptResponse.data.choices[0].message.content;
-        raw = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+        let raw = gptResponse.data.choices[0].message.content
+            .replace(/```json/g, '').replace(/```/g, '').trim();
 
         const data = JSON.parse(raw);
+        console.log(`[${callSid}] Dane z GPT:`, data);
 
-        console.log("DANE Z SMS:", data);
+        const isBadData =
+            !data.city || data.city === "BRAK" ||
+            !data.street || data.street === "BRAK" ||
+            !data.number || data.number === "BRAK" ||
+            !data.problem || data.problem === "BRAK";
 
-        const fullAddress = simplifyAddress(
-            `${data.city} ${data.street} ${data.number}`
-        );
-
-        let firma = null;
-
-        if (mpglAddresses.some(addr => {
-            const s = simplifyAddress(addr);
-            return fullAddress.includes(s) || s.includes(fullAddress);
-        })) {
-            firma = 'MPGL';
-
-        } else if (sdsmAddresses.some(addr => {
-            const s = simplifyAddress(addr);
-            return fullAddress.includes(s) || s.includes(fullAddress);
-        })) {
-            firma = 'SDSM';
-
-        } else if (barbaraAddresses.some(addr => {
-            const s = simplifyAddress(addr);
-            return fullAddress.includes(s) || s.includes(fullAddress);
-        })) {
-            firma = 'SM BARBARA';
+        if (isBadData) {
+            console.log(`[${callSid}] Niekompletne dane - wysyłam SMS do klienta`);
+            if (callerPhone) {
+                await twilioClient.messages.create({
+                    from: process.env.TWILIO_PHONE,
+                    to: callerPhone,
+                    body: `Nie udało się poprawnie rozpoznać zgłoszenia.\nProsimy o wysłanie SMS w formacie:\nAdres:\nAwaria:`
+                });
+            }
+            return;
         }
 
+        const firma = findFirma(data.city, data.street);
         const isValidAddress = !!firma;
+        const flatInfo = data.flat && data.flat !== "BRAK" ? `/${data.flat}` : '';
+        const adres = `${data.city}, ul. ${data.street} ${data.number}${flatInfo}`;
 
-        console.log("FIRMA:", firma);
-        console.log("OBSŁUGIWANY:", isValidAddress);
+        console.log(`[${callSid}] Firma: ${firma}, Obsługiwany: ${isValidAddress}`);
 
-        const phone = req.body.From;
+        // SMS do klienta
+        if (callerPhone) {
+            if (isValidAddress) {
+                await twilioClient.messages.create({
+                    from: process.env.TWILIO_PHONE,
+                    to: callerPhone,
+                    body: `Dziękujemy za zgłoszenie.\nAdres: ${adres}\nFirma: ${firma}`
+                });
+            } else {
+                await twilioClient.messages.create({
+                    from: process.env.TWILIO_PHONE,
+                    to: callerPhone,
+                    body: `Przepraszamy, nie obsługujemy tego adresu:\n${adres}\n\nJeżeli adres jest nieprawidłowy, wyślij SMS w formacie:\nAdres:\nAwaria:`
+                });
+            }
+        }
 
-        if (isValidAddress) {
+        // SMS do pracowników
+        const workers = [
+            '+48660687951',
+        ];
 
-            await twilio.messages.create({
+        for (const w of workers) {
+            const msg = await twilioClient.messages.create({
                 from: process.env.TWILIO_PHONE,
-                to: '+48660687951',
-                body: `Nowe zgłoszenie (SMS):
-
-Firma: ${firma}
-Telefon: ${phone}
-Adres: ${data.city}, ul. ${data.street} ${data.number}${data.flat ? '/' + data.flat : ''}
-Problem: ${data.problem}`
+                to: w,
+                body: `Nowe zgłoszenie (tel):
+Firma: ${firma || 'NIEZNANA'}
+Telefon: ${callerPhone}
+Adres: ${adres}
+Awaria: ${data.problem}
+Obsługiwany: ${isValidAddress ? 'TAK' : 'NIE'}`
             });
-
-            await twilio.messages.create({
-                from: process.env.TWILIO_PHONE,
-                to: phone,
-                body: `Dziękujemy, zgłoszenie przyjęte:
-${data.city}, ul. ${data.street} ${data.number}${data.flat ? '/' + data.flat : ''}`
-            });
-
-        } else {
-
-            await twilio.messages.create({
-                from: process.env.TWILIO_PHONE,
-                to: phone,
-                body: `Przepraszamy, nie obsługujemy tego adresu.`
-            });
-
+            console.log(`[${callSid}] SMS do ${w}: SID=${msg.sid} STATUS=${msg.status}`);
         }
 
     } catch (err) {
-        console.error("BŁĄD SMS:", err);
+        console.error(`[${callSid}] Błąd processVoiceSession:`, err.message);
     }
+}
+
+// --- SMSY PRZYCHODZĄCE ---
+app.post('/sms', async (req, res) => {
+    const incomingMsg = req.body.Body || '';
+    const phone = req.body.From || '';
+
+    console.log("SMS OD KLIENTA:", incomingMsg);
 
     res.send('<Response></Response>');
+
+    try {
+        const gptResponse = await axios.post(
+            'https://api.openai.com/v1/chat/completions',
+            {
+                model: 'gpt-4o-mini',
+                messages: [
+                    {
+                        role: 'system',
+                        content: `Wyciągnij dane z tekstu i zwróć JSON bez komentarzy:
+{
+  "city": "",
+  "street": "",
+  "number": "",
+  "flat": "",
+  "problem": ""
+}
+Zasady:
+- popraw błędy zapisu (np. "swietochlowice" → "Świętochłowice")
+- rozdziel ulicę i numer budynku
+- flat to numer mieszkania jeśli podano, jeśli nie wpisz "BRAK"
+- jeśli brak danych wpisz "BRAK"
+- zwróć tylko JSON`
+                    },
+                    { role: 'user', content: incomingMsg }
+                ]
+            },
+            { headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` } }
+        );
+
+        let raw = gptResponse.data.choices[0].message.content
+            .replace(/```json/g, '').replace(/```/g, '').trim();
+
+        const data = JSON.parse(raw);
+        console.log("DANE Z SMS:", data);
+
+        const firma = findFirma(data.city, data.street);
+        const isValidAddress = !!firma;
+        const flatInfo = data.flat && data.flat !== "BRAK" ? `/${data.flat}` : '';
+        const adres = `${data.city}, ul. ${data.street} ${data.number}${flatInfo}`;
+
+        console.log("FIRMA:", firma, "OBSŁUGIWANY:", isValidAddress);
+
+        if (isValidAddress) {
+            await twilioClient.messages.create({
+                from: process.env.TWILIO_PHONE,
+                to: '+48660687951',
+                body: `Nowe zgłoszenie (SMS):
+Firma: ${firma}
+Telefon: ${phone}
+Adres: ${adres}
+Awaria: ${data.problem}`
+            });
+
+            await twilioClient.messages.create({
+                from: process.env.TWILIO_PHONE,
+                to: phone,
+                body: `Dziękujemy, zgłoszenie przyjęte:\n${adres}`
+            });
+
+        } else {
+            await twilioClient.messages.create({
+                from: process.env.TWILIO_PHONE,
+                to: phone,
+                body: `Przepraszamy, nie obsługujemy tego adresu.\n\nJeżeli adres jest nieprawidłowy, wyślij SMS ponownie w formacie:\nAdres:\nAwaria:`
+            });
+        }
+
+    } catch (err) {
+        console.error("BŁĄD SMS:", err.message);
+    }
 });
 
 // --- URUCHOMIENIE SERWERA ---
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server dziala na porcie ${PORT}`));
+app.listen(PORT, () => console.log(`Serwer działa na porcie ${PORT}`));
