@@ -4,29 +4,24 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const { VoiceResponse } = require('twilio').twiml;
 const axios = require('axios');
-const FormData = require('form-data');
 const fs = require('fs');
 
 const BASE_URL = process.env.BASE_URL || 'https://pogotowie-production.up.railway.app';
 const DOJAZD_MINUT = parseInt(process.env.DOJAZD_MINUT || '60');
 
-// Twilio - tylko do obsługi połączeń głosowych
+// Twilio - tylko odbieranie połączeń głosowych
 const twilioClient = require('twilio')(
     process.env.TWILIO_SID,
     process.env.TWILIO_AUTH_TOKEN
 );
 
-// SMSAPI - wysyłanie SMS-ów
+// SMSAPI - wysyłanie wszystkich SMS-ów
 async function sendSms(to, message) {
     const phone = to.replace(/^\+/, '');
     try {
         const response = await axios.post(
             'https://api.smsapi.pl/sms.do',
-            new URLSearchParams({
-                to: phone,
-                message: message,
-                format: 'json'
-            }),
+            new URLSearchParams({ to: phone, message, format: 'json' }),
             {
                 headers: {
                     'Authorization': `Bearer ${process.env.SMSAPI_TOKEN}`,
@@ -94,7 +89,6 @@ function addressesMatch(inputCityTokens, inputStreetTokens, candidateText) {
     const candidateTokens = tokenize(candidateText);
     const streetMatch = inputStreetTokens.every(t => candidateTokens.includes(t));
     if (!streetMatch) return false;
-
     const candidateHasCity = inputCityTokens.some(t => candidateTokens.includes(t));
     if (candidateHasCity) {
         return inputCityTokens.every(t => candidateTokens.includes(t));
@@ -118,7 +112,7 @@ const mpglAddresses = loadAddresses('adresy/mpgl.txt');
 const sdsmAddresses = loadAddresses('adresy/sdsm.txt');
 const barbaraAddresses = loadAddresses('adresy/sm-barbara.txt');
 
-console.log(`Załadowano adresów: MPGL=${mpglAddresses.length}, SDSM=${sdsmAddresses.length}, Barbara=${barbaraAddresses.length}`);
+console.log(`Załadowano: MPGL=${mpglAddresses.length}, SDSM=${sdsmAddresses.length}, Barbara=${barbaraAddresses.length}`);
 
 function findFirma(city, street) {
     const inputCityTokens = tokenize(city);
@@ -151,6 +145,8 @@ function godzinaDojazdu() {
     const m = teraz.getMinutes().toString().padStart(2, '0');
     return `${h}:${m}`;
 }
+
+// --- POŁĄCZENIA GŁOSOWE (Twilio) ---
 
 app.post('/voice', (req, res) => {
     const callSid = req.body.CallSid;
@@ -226,7 +222,8 @@ app.post('/voice/krok4', (req, res) => {
     const godz = godzinaDojazdu();
     const twiml = new VoiceResponse();
     twiml.pause({ length: 6 });
-    twiml.say({ language: 'pl-PL', voice: 'alice' }, `Dziękujemy za zgłoszenie. Przewidywany dojazd do godziny ${godz}.`);
+    twiml.say({ language: 'pl-PL', voice: 'alice' },
+        `Dziękujemy za zgłoszenie. Przewidywany dojazd do godziny ${godz}.`);
 
     res.type('text/xml');
     res.send(twiml.toString());
@@ -287,7 +284,8 @@ Zasady:
 
         if (isBadData) {
             if (callerPhone) {
-                await sendSms(callerPhone, `Nie udało się poprawnie rozpoznać zgłoszenia.\nProsimy o wysłanie SMS w formacie:\nAdres:\nAwaria:`);
+                await sendSms(callerPhone,
+                    `Nie udało się rozpoznać zgłoszenia.\nProsimy o SMS w formacie:\nAdres:\nAwaria:`);
             }
             return;
         }
@@ -301,26 +299,28 @@ Zasady:
 
         if (callerPhone) {
             if (isValidAddress) {
-                await sendSms(callerPhone, `Dziękujemy za zgłoszenie.\nAdres: ${adres}\nFirma: ${firma}`);
+                await sendSms(callerPhone,
+                    `Dziękujemy za zgłoszenie.\nAdres: ${adres}\nFirma: ${firma}`);
             } else {
-                await sendSms(callerPhone, `Przepraszamy, nie obsługujemy tego adresu:\n${adres}\n\nJeżeli adres jest nieprawidłowy, wyślij SMS w formacie:\nAdres:\nAwaria:`);
+                await sendSms(callerPhone,
+                    `Przepraszamy, nie obsługujemy tego adresu:\n${adres}\n\nJeżeli adres jest nieprawidłowy, wyślij SMS w formacie:\nAdres:\nAwaria:`);
             }
         }
 
-        for (const w of ['+48660687951']) {
-            await sendSms(w, `Nowe zgłoszenie (tel):
+        await sendSms('+48660687951',
+            `Nowe zgłoszenie (tel):
 Firma: ${firma || 'NIEZNANA'}
 Telefon: ${callerPhone}
 Adres: ${adres}
 Awaria: ${data.problem}
 Obsługiwany: ${isValidAddress ? 'TAK' : 'NIE'}`);
-            console.log(`[${callSid}] SMS wysłany do ${w}`);
-        }
 
     } catch (err) {
         console.error(`[${callSid}] Błąd:`, err.message);
     }
 }
+
+// --- SMS PRZYCHODZĄCE (Twilio odbiera, SMSAPI odsyła) ---
 
 app.post('/sms', async (req, res) => {
     const incomingMsg = req.body.Body || '';
@@ -371,7 +371,8 @@ Zasady:
         console.log("FIRMA:", firma, "OBSŁUGIWANY:", isValidAddress);
 
         if (isValidAddress) {
-            await sendSms('+48660687951', `Nowe zgłoszenie (SMS):
+            await sendSms('+48660687951',
+                `Nowe zgłoszenie (SMS):
 Firma: ${firma}
 Telefon: ${phone}
 Adres: ${adres}
@@ -379,7 +380,8 @@ Awaria: ${data.problem}`);
 
             await sendSms(phone, `Dziękujemy, zgłoszenie przyjęte:\n${adres}`);
         } else {
-            await sendSms(phone, `Przepraszamy, nie obsługujemy tego adresu.\n\nJeżeli adres jest nieprawidłowy, wyślij SMS ponownie w formacie:\nAdres:\nAwaria:`);
+            await sendSms(phone,
+                `Przepraszamy, nie obsługujemy tego adresu.\n\nJeżeli adres jest nieprawidłowy, wyślij SMS ponownie w formacie:\nAdres:\nAwaria:`);
         }
 
     } catch (err) {
