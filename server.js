@@ -4,18 +4,34 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const { VoiceResponse } = require('twilio').twiml;
 const axios = require('axios');
+const FormData = require('form-data');
 const fs = require('fs');
 
 const BASE_URL = process.env.BASE_URL || 'https://pogotowie-production.up.railway.app';
 const DOJAZD_MINUT = parseInt(process.env.DOJAZD_MINUT || '60');
 
-// Twilio - tylko odbieranie połączeń głosowych
+// Twilio - tylko do obsługi połączeń głosowych
 const twilioClient = require('twilio')(
     process.env.TWILIO_SID,
     process.env.TWILIO_AUTH_TOKEN
 );
 
-// SMSAPI - wysyłanie wszystkich SMS-ów
+// Telegram - powiadomienia do pracowników (bezpłatne)
+async function sendTelegram(message) {
+    try {
+        const response = await axios.post(
+            `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+            { chat_id: process.env.TELEGRAM_CHAT_ID, text: message }
+        );
+        console.log('Telegram wysłano | ok:', response.data.ok);
+        return response.data;
+    } catch (err) {
+        console.error('Telegram błąd:', err.response?.data || err.message);
+        throw err;
+    }
+}
+
+// SMSAPI - wysyłanie SMS-ów do klientów
 async function sendSms(to, message) {
     const phone = to.replace(/^\+/, '');
     try {
@@ -112,7 +128,7 @@ const mpglAddresses = loadAddresses('adresy/mpgl.txt');
 const sdsmAddresses = loadAddresses('adresy/sdsm.txt');
 const barbaraAddresses = loadAddresses('adresy/sm-barbara.txt');
 
-console.log(`Załadowano: MPGL=${mpglAddresses.length}, SDSM=${sdsmAddresses.length}, Barbara=${barbaraAddresses.length}`);
+console.log(`Załadowano adresów: MPGL=${mpglAddresses.length}, SDSM=${sdsmAddresses.length}, Barbara=${barbaraAddresses.length}`);
 
 function findFirma(city, street) {
     const inputCityTokens = tokenize(city);
@@ -145,8 +161,6 @@ function godzinaDojazdu() {
     const m = teraz.getMinutes().toString().padStart(2, '0');
     return `${h}:${m}`;
 }
-
-// --- POŁĄCZENIA GŁOSOWE (Twilio) ---
 
 app.post('/voice', (req, res) => {
     const callSid = req.body.CallSid;
@@ -284,8 +298,7 @@ Zasady:
 
         if (isBadData) {
             if (callerPhone) {
-                await sendSms(callerPhone,
-                    `Nie udało się rozpoznać zgłoszenia.\nProsimy o SMS w formacie:\nAdres:\nAwaria:`);
+                await sendSms(callerPhone, `Nie udało się rozpoznać zgłoszenia.\nProsimy o SMS w formacie:\nAdres:\nAwaria:`);
             }
             return;
         }
@@ -299,28 +312,24 @@ Zasady:
 
         if (callerPhone) {
             if (isValidAddress) {
-                await sendSms(callerPhone,
-                    `Dziękujemy za zgłoszenie.\nAdres: ${adres}\nFirma: ${firma}`);
+                await sendSms(callerPhone, `Dziękujemy za zgłoszenie.\nAdres: ${adres}\nFirma: ${firma}`);
             } else {
-                await sendSms(callerPhone,
-                    `Przepraszamy, nie obsługujemy tego adresu:\n${adres}\n\nJeżeli adres jest nieprawidłowy, wyślij SMS w formacie:\nAdres:\nAwaria:`);
+                await sendSms(callerPhone, `Przepraszamy, nie obsługujemy tego adresu:\n${adres}\n\nJeżeli adres jest nieprawidłowy, wyślij SMS w formacie:\nAdres:\nAwaria:`);
             }
         }
 
-        await sendSms('+48660687951',
-            `Nowe zgłoszenie (tel):
+        await sendTelegram(`Nowe zgłoszenie (tel):
 Firma: ${firma || 'NIEZNANA'}
 Telefon: ${callerPhone}
 Adres: ${adres}
 Awaria: ${data.problem}
 Obsługiwany: ${isValidAddress ? 'TAK' : 'NIE'}`);
+        console.log(`[${callSid}] Telegram wysłany`);
 
     } catch (err) {
-        console.error(`[${callSid}] Błąd:`, err.message);
+        console.error(`[${callSid}] Błąd processVoiceSession:`, err.message);
     }
 }
-
-// --- SMS PRZYCHODZĄCE (Twilio odbiera, SMSAPI odsyła) ---
 
 app.post('/sms', async (req, res) => {
     const incomingMsg = req.body.Body || '';
@@ -371,8 +380,7 @@ Zasady:
         console.log("FIRMA:", firma, "OBSŁUGIWANY:", isValidAddress);
 
         if (isValidAddress) {
-            await sendSms('+48660687951',
-                `Nowe zgłoszenie (SMS):
+            await sendTelegram(`Nowe zgłoszenie (SMS):
 Firma: ${firma}
 Telefon: ${phone}
 Adres: ${adres}
@@ -380,8 +388,7 @@ Awaria: ${data.problem}`);
 
             await sendSms(phone, `Dziękujemy, zgłoszenie przyjęte:\n${adres}`);
         } else {
-            await sendSms(phone,
-                `Przepraszamy, nie obsługujemy tego adresu.\n\nJeżeli adres jest nieprawidłowy, wyślij SMS ponownie w formacie:\nAdres:\nAwaria:`);
+            await sendSms(phone, `Przepraszamy, nie obsługujemy tego adresu.\n\nJeżeli adres jest nieprawidłowy, wyślij SMS ponownie w formacie:\nAdres:\nAwaria:`);
         }
 
     } catch (err) {
