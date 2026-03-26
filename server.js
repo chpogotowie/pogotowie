@@ -10,6 +10,9 @@ const fs = require('fs');
 const BASE_URL = process.env.BASE_URL || 'https://pogotowie-production.up.railway.app';
 const DOJAZD_MINUT = parseInt(process.env.DOJAZD_MINUT || '60');
 
+const EXCLUDED_NUMBERS = (process.env.EXCLUDED_NUMBERS || '').split(',').map(n => n.trim()).filter(Boolean);
+const FORWARD_TO = process.env.FORWARD_TO || '';
+
 // Twilio - tylko do obsługi połączeń głosowych
 const twilioClient = require('twilio')(
     process.env.TWILIO_SID,
@@ -37,7 +40,7 @@ async function sendSms(to, message) {
     try {
         const response = await axios.post(
             'https://api.smsapi.pl/sms.do',
-            new URLSearchParams({ to: phone, message, format: 'json' }),
+            new URLSearchParams({ to: phone, message, format: 'json', encoding: 'utf-8' }),
             {
                 headers: {
                     'Authorization': `Bearer ${process.env.SMSAPI_TOKEN}`,
@@ -105,11 +108,8 @@ function addressesMatch(inputCityTokens, inputStreetTokens, candidateText) {
     const candidateTokens = tokenize(candidateText);
     const streetMatch = inputStreetTokens.every(t => candidateTokens.includes(t));
     if (!streetMatch) return false;
-    const candidateHasCity = inputCityTokens.some(t => candidateTokens.includes(t));
-    if (candidateHasCity) {
-        return inputCityTokens.every(t => candidateTokens.includes(t));
-    }
-    return true;
+    const cityMatch = inputCityTokens.every(t => candidateTokens.includes(t));
+    return cityMatch;  // ← miasto I ulica muszą pasować
 }
 
 function loadAddresses(file) {
@@ -160,12 +160,27 @@ function godzinaDojazdu() {
     const h = teraz.getHours().toString().padStart(2, '0');
     const m = teraz.getMinutes().toString().padStart(2, '0');
     return `${h}:${m}`;
+    return teraz.toLocaleTimeString('pl-PL', {
+        timeZone: 'Europe/Warsaw',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    });
 }
 
 app.post('/voice', (req, res) => {
     const callSid = req.body.CallSid;
     const callerPhone = req.body.From || '';
-    sessions.set(callSid, { callerPhone });
+
+ if (EXCLUDED_NUMBERS.includes(callerPhone)) {
+        const twiml = new VoiceResponse();
+        twiml.dial(FORWARD_TO);
+        res.type('text/xml');
+        res.send(twiml.toString());
+        return;
+    }
+    sessions.set(callSid, { callerPhone }); 
+
 
     const twiml = new VoiceResponse();
     const gather = twiml.gather({
