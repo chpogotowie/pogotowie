@@ -104,12 +104,17 @@ function tokenize(text) {
     return simplifyAddress(text).split(' ').filter(p => p.length > 0);
 }
 
-function addressesMatch(inputCityTokens, inputStreetTokens, candidateText) {
+function addressesMatch(inputCityTokens, inputStreetTokens, inputNumber, candidateText) {
     const candidateTokens = tokenize(candidateText);
     const streetMatch = inputStreetTokens.every(t => candidateTokens.includes(t));
     if (!streetMatch) return false;
     const cityMatch = inputCityTokens.every(t => candidateTokens.includes(t));
-    return cityMatch;  // ← miasto I ulica muszą pasować
+    if (!cityMatch) return false;
+    if (inputNumber && inputNumber !== 'brak') {
+        const num = inputNumber.toLowerCase().trim();
+        return candidateTokens.some(t => t === num);
+    }
+    return true;
 }
 
 function loadAddresses(file) {
@@ -130,36 +135,30 @@ const barbaraAddresses = loadAddresses('adresy/sm-barbara.txt');
 
 console.log(`Załadowano adresów: MPGL=${mpglAddresses.length}, SDSM=${sdsmAddresses.length}, Barbara=${barbaraAddresses.length}`);
 
-function findFirma(city, street) {
+function findFirma(city, street, number) {
     const inputCityTokens = tokenize(city);
     const inputStreetTokens = tokenize(street);
-
-    console.log(`SZUKAM: miasto=[${inputCityTokens}] ulica=[${inputStreetTokens}]`);
-
+    const inputNumber = (number || '').toLowerCase().trim();
+    console.log(`SZUKAM: miasto=[${inputCityTokens}] ulica=[${inputStreetTokens}] numer=[${inputNumber}]`);
     const lists = [
         { name: 'MPGL', list: mpglAddresses },
         { name: 'SDSM', list: sdsmAddresses },
         { name: 'SM BARBARA', list: barbaraAddresses },
     ];
-
     for (const { name, list } of lists) {
         const match = list.find(addr => {
-            const result = addressesMatch(inputCityTokens, inputStreetTokens, addr);
+            const result = addressesMatch(inputCityTokens, inputStreetTokens, inputNumber, addr);
             if (result) console.log(`DOPASOWANIE ${name}: "${addr}"`);
             return result;
         });
         if (match) return name;
     }
-
     return null;
 }
 
 function godzinaDojazdu() {
     const teraz = new Date();
     teraz.setMinutes(teraz.getMinutes() + DOJAZD_MINUT);
-    const h = teraz.getHours().toString().padStart(2, '0');
-    const m = teraz.getMinutes().toString().padStart(2, '0');
-    return `${h}:${m}`;
     return teraz.toLocaleTimeString('pl-PL', {
         timeZone: 'Europe/Warsaw',
         hour: '2-digit',
@@ -318,7 +317,7 @@ Zasady:
             return;
         }
 
-        const firma = findFirma(data.city, data.street);
+        const firma = findFirma(data.city, data.street, data.number);
         const isValidAddress = !!firma;
         const flatInfo = data.flat && data.flat !== "BRAK" ? `/${data.flat}` : '';
         const adres = `${data.city}, ul. ${data.street} ${data.number}${flatInfo}`;
@@ -387,7 +386,7 @@ Zasady:
         const data = JSON.parse(raw);
         console.log("DANE Z SMS:", data);
 
-        const firma = findFirma(data.city, data.street);
+        const firma = findFirma(data.city, data.street, data.number);
         const isValidAddress = !!firma;
         const flatInfo = data.flat && data.flat !== "BRAK" ? `/${data.flat}` : '';
         const adres = `${data.city}, ul. ${data.street} ${data.number}${flatInfo}`;
@@ -403,7 +402,7 @@ Awaria: ${data.problem}`);
 
             await sendSms(phone, `Dziękujemy, zgłoszenie przyjęte:\n${adres}`);
         } else {
-            await sendSms(phone, `Przepraszamy, nie obsługujemy tego adresu.\n\nJeżeli adres jest nieprawidłowy, wyślij SMS ponownie w formacie:\nAdres:\nAwaria:`);
+            await sendSms(phone, `Przepraszamy, nie obsługujemy tego adresu.\n\nJeżeli adres jest nieprawidłowy, Prosimy o ponowne skontaktowanie się`);
         }
 
     } catch (err) {
