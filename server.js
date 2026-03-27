@@ -328,7 +328,7 @@ Zasady:
             if (isValidAddress) {
                 await sendSms(callerPhone, `Dziękujemy za zgłoszenie.\nAdres: ${adres}\nFirma: ${firma}`);
             } else {
-                await sendSms(callerPhone, `Przepraszamy, nie obsługujemy tego adresu:\n${adres}\n\nJeżeli adres jest nieprawidłowy, wyślij SMS w formacie:\nAdres:\nAwaria:`);
+                await sendSms(callerPhone, `Przepraszamy, nie obsługujemy tego adresu:\n${adres}\n\nJeżeli podany wyżej adres jest nieprawidłowy, prosimy o ponowne skontaktowanie się.`);
             }
         }
 
@@ -402,7 +402,7 @@ Awaria: ${data.problem}`);
 
             await sendSms(phone, `Dziękujemy, zgłoszenie przyjęte:\n${adres}`);
         } else {
-            await sendSms(phone, `Przepraszamy, nie obsługujemy tego adresu.\n\nJeżeli adres jest nieprawidłowy, Prosimy o ponowne skontaktowanie się`);
+            await sendSms(phone, `Przepraszamy, nie obsługujemy tego adresu:\n${adres}\n\nJeżeli podany wyżej adres jest nieprawidłowy, prosimy o ponowne skontaktowanie się.`);
         }
 
     } catch (err) {
