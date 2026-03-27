@@ -39,6 +39,7 @@
 Świętochłowice ul. Moniuszki 14
 Świętochłowice ul. Pileckiego 16
 Świętochłowice ul. Pileckiego 20
+
 Świętochłowice ul. 3 Maja 154
 Świętochłowice ul. 3 Maja 154a
 Świętochłowice ul. 3 Maja 158
@@ -47,6 +48,15 @@
 Świętochłowice ul. Chropaczowska 15
 Świętochłowice ul. Chropaczowska 15a
 Świętochłowice ul. Chropaczowska 16
+
+Chorzów ul. 3 Maja 154
+Chorzów ul. 3 Maja 154a
+Chorzów ul. 3 Maja 158
+Chorzów ul. Bytomska 44
+Chorzów ul. Bytomska 44a
+Chorzów ul. Chropaczowska 15
+Chorzów ul. Chropaczowska 15a
+Chorzów ul. Chropaczowska 16
 Ruda Śląska ul. Gajowa 47
 Ruda Śląska ul. Gajowa 47a
 Ruda Śląska ul. Gajowa 47b
