@@ -20,12 +20,16 @@ const twilioClient = require('twilio')(
 );
 
 // Telegram - powiadomienia do pracowników (bezpłatne)
-async function sendTelegram(message) {
+async function sendTelegram(message, threadId) {
     try {
+        const payload = { chat_id: process.env.TELEGRAM_CHAT_ID, text: message };
+        if (threadId) payload.message_thread_id = parseInt(threadId);
         const response = await axios.post(
             `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
-            { chat_id: process.env.TELEGRAM_CHAT_ID, text: message }
+            payload
         );
+
+
         console.log('Telegram wysłano | ok:', response.data.ok);
         return response.data;
     } catch (err) {
@@ -332,12 +336,16 @@ Zasady:
             }
         }
 
-        await sendTelegram(`Nowe zgłoszenie (tel):
+        const msgTel = `Nowe zgłoszenie (tel):
 Firma: ${firma || 'NIEZNANA'}
 Telefon: ${callerPhone}
 Adres: ${adres}
-Awaria: ${data.problem}
-Obsługiwany: ${isValidAddress ? 'TAK' : 'NIE'}`);
+Awaria: ${data.problem}`;
+if (isValidAddress) {
+    await sendTelegram(msgTel, process.env.TELEGRAM_THREAD_WORKERS);
+}
+await sendTelegram(msgTel + `\nObsługiwany: ${isValidAddress ? 'TAK' : 'NIE'}`, process.env.TELEGRAM_THREAD_ALL);
+
         console.log(`[${callSid}] Telegram wysłany`);
 
     } catch (err) {
@@ -394,11 +402,17 @@ Zasady:
         console.log("FIRMA:", firma, "OBSŁUGIWANY:", isValidAddress);
 
         if (isValidAddress) {
-            await sendTelegram(`Nowe zgłoszenie (SMS):
-Firma: ${firma}
+            const msgSms = `Nowe zgłoszenie (SMS):
+Firma: ${firma || 'NIEZNANA'}
 Telefon: ${phone}
 Adres: ${adres}
-Awaria: ${data.problem}`);
+Awaria: ${data.problem}`;
+if (isValidAddress) {
+    await sendTelegram(msgSms, process.env.TELEGRAM_THREAD_WORKERS);
+}
+await sendTelegram(msgSms + `\nObsługiwany: ${isValidAddress ? 'TAK' : 'NIE'}`, process.env.TELEGRAM_THREAD_ALL);
+
+
 
             await sendSms(phone, `Dziękujemy, zgłoszenie przyjęte:\n${adres}`);
         } else {
