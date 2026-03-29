@@ -97,7 +97,7 @@ function simplifyAddress(text) {
     return normalize(text)
         .replace(/\b(ul|ulica|al|aleja|aleje|pl|plac|os|osiedle|skwer)\b/g, '')
         .split(' ')
-        .filter(word => word.length > 1)
+        .filter(word => word.length > 1 || /^\d+$/.test(word))
         .map(stemWord)
         .join(' ')
         .replace(/\s+/g, ' ')
