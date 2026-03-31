@@ -292,7 +292,9 @@ Zasady:
 - numer budynku to liczba podana PO nazwie ulicy, np. "11 Listopada 64" → street: "11 Listopada", number: "64"
 - flat to numer mieszkania jeśli podano po "/", np. "64/5" → number: "64", flat: "5"
 - liczby wymawiane np. "sześćdziesiąt cztery" → "64"
-- numer budynku może zawierać literę na końcu np. "dziewięćdziesiąt pięć k" → number: "95k", "dwanaście a" → number: "12a" - przepisuj razem jako jeden numer
+- numer budynku może zawierać jedną literę bezpośrednio po cyfrach np. "139a", "95k"
+- numer mieszkania to osobna liczba PO numerze budynku, np. "139a trzynaście" → number: "139a", flat: "13" - NIE łącz w "139a13"
+- słowo "przez" oznacza separator między numerem budynku a mieszkaniem, np. "139a przez 13" → number: "139a", flat: "13"
 - jeśli brak danych wpisz "BRAK"
 - zwróć tylko JSON`
                     },
@@ -382,7 +384,9 @@ Zasady:
 - UWAGA: nazwy ulic w Polsce często zaczynają się od liczby np. "11 Listopada", "1 Maja", "3 Maja" - cała nazwa to ulica, nie mylić z numerem budynku
 - numer budynku to liczba podana PO nazwie ulicy, np. "11 Listopada 64" → street: "11 Listopada", number: "64"
 - flat to numer mieszkania jeśli podano po "/", np. "64/5" → number: "64", flat: "5"
-- numer budynku może zawierać literę na końcu np. "95k", "12a" - przepisuj razem jako jeden numer
+- numer budynku może zawierać jedną literę bezpośrednio po cyfrach np. "139a", "95k"
+- numer mieszkania to osobna liczba PO numerze budynku, np. "139a 13" → number: "139a", flat: "13" - NIE łącz w "139a13"
+- słowo "przez" oznacza separator między numerem budynku a mieszkaniem, np. "139a przez 13" → number: "139a", flat: "13"
 - jeśli brak danych wpisz "BRAK"
 - zwróć tylko JSON`
                     },
