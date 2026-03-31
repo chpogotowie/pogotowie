@@ -292,6 +292,7 @@ Zasady:
 - numer budynku to liczba podana PO nazwie ulicy, np. "11 Listopada 64" → street: "11 Listopada", number: "64"
 - flat to numer mieszkania jeśli podano po "/", np. "64/5" → number: "64", flat: "5"
 - liczby wymawiane np. "sześćdziesiąt cztery" → "64"
+- numer budynku może zawierać literę na końcu np. "dziewięćdziesiąt pięć k" → number: "95k", "dwanaście a" → number: "12a" - przepisuj razem jako jeden numer
 - jeśli brak danych wpisz "BRAK"
 - zwróć tylko JSON`
                     },
@@ -381,6 +382,7 @@ Zasady:
 - UWAGA: nazwy ulic w Polsce często zaczynają się od liczby np. "11 Listopada", "1 Maja", "3 Maja" - cała nazwa to ulica, nie mylić z numerem budynku
 - numer budynku to liczba podana PO nazwie ulicy, np. "11 Listopada 64" → street: "11 Listopada", number: "64"
 - flat to numer mieszkania jeśli podano po "/", np. "64/5" → number: "64", flat: "5"
+- numer budynku może zawierać literę na końcu np. "95k", "12a" - przepisuj razem jako jeden numer
 - jeśli brak danych wpisz "BRAK"
 - zwróć tylko JSON`
                     },
@@ -402,23 +404,19 @@ Zasady:
 
         console.log("FIRMA:", firma, "OBSŁUGIWANY:", isValidAddress);
 
-        if (isValidAddress) {
-            const msgSms = `Nowe zgłoszenie (SMS):
+                const msgSms = `Nowe zgłoszenie (SMS):
 Firma: ${firma || 'NIEZNANA'}
 Telefon: ${phone}
 Adres: ${adres}
 Awaria: ${data.problem}`;
-if (isValidAddress) {
-    await sendTelegram(msgSms, process.env.TELEGRAM_THREAD_WORKERS);
-}
-await sendTelegram(msgSms + `\nObsługiwany: ${isValidAddress ? 'TAK' : 'NIE'}`, process.env.TELEGRAM_THREAD_ALL);
 
-
-
+        if (isValidAddress) {
+            await sendTelegram(msgSms, process.env.TELEGRAM_THREAD_WORKERS);
             await sendSms(phone, `Dziękujemy, zgłoszenie przyjęte:\n${adres}`);
         } else {
             await sendSms(phone, `Przepraszamy, nie obsługujemy tego adresu:\n${adres}\n\nJeżeli podany wyżej adres jest nieprawidłowy, prosimy o ponowne skontaktowanie się.`);
         }
+        await sendTelegram(msgSms + `\nObsługiwany: ${isValidAddress ? 'TAK' : 'NIE'}`, process.env.TELEGRAM_THREAD_ALL);
 
     } catch (err) {
         console.error("BŁĄD SMS:", err.message);
