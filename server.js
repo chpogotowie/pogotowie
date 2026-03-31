@@ -115,9 +115,15 @@ function addressesMatch(inputCityTokens, inputStreetTokens, inputNumber, candida
     const cityMatch = inputCityTokens.every(t => candidateTokens.includes(t));
     if (!cityMatch) return false;
     if (inputNumber && inputNumber !== 'brak') {
-        const num = inputNumber.toLowerCase().trim();
-        return candidateTokens.some(t => t === num);
-    }
+    const num = inputNumber.toLowerCase().trim();
+    const numBase = num.replace(/[a-ząćęłńóśźż]+$/, '');
+    return candidateTokens.some(t => {
+        if (t === num) return true;
+        const tBase = t.replace(/[a-ząćęłńóśźż]+$/, '');
+        return numBase.length > 0 && numBase === tBase;
+    });
+}
+
     return true;
 }
 
