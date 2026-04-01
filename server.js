@@ -160,8 +160,27 @@ function findFirma(city, street, number) {
     }
     return null;
 }
+    return null;
+}
+
+function normalizujUlice(street) {
+    const s = street.toLowerCase();
+    if (s.includes('mari') && (
+        s.includes('dulc') ||
+        s.includes('duz') ||
+        s.includes('dulsi') ||
+        s.includes('holc') ||
+        s.includes('hofm') ||
+        s.includes('hoffm') ||
+        s.includes('man')
+    )) {
+        return 'Marii Dulcissimy Hoffmann';
+    }
+    return street;
+}
 
 function godzinaDojazdu() {
+
     const teraz = new Date();
     teraz.setMinutes(teraz.getMinutes() + DOJAZD_MINUT);
     return teraz.toLocaleTimeString('pl-PL', {
@@ -295,6 +314,7 @@ Zasady:
 - numer budynku może zawierać jedną literę bezpośrednio po cyfrach np. "139a", "95k"
 - numer mieszkania to osobna liczba PO numerze budynku, np. "139a trzynaście" → number: "139a", flat: "13" - NIE łącz w "139a13"
 - słowo "przez" oznacza separator między numerem budynku a mieszkaniem, np. "139a przez 13" → number: "139a", flat: "13"
+- pole "street" zawiera TYLKO nazwę ulicy BEZ słów "ul.", "ulica", "al.", "aleja", "pl.", "plac", "os.", "osiedle" - usuń je z początku nazwy ulicy
 - jeśli brak danych wpisz "BRAK"
 - zwróć tylko JSON`
                     },
@@ -320,15 +340,17 @@ Zasady:
 
         if (isBadData) {
             if (callerPhone) {
-                await sendSms(callerPhone, `Nie udało się rozpoznać zgłoszenia.\nProsimy o SMS w formacie:\nAdres:\nAwaria:`);
+                await sendSms(callerPhone, `Nie udało się rozpoznać zgłoszenia.\nProsimy o ponowne skontaktowanie się.);
             }
             return;
         }
 
+                data.street = normalizujUlice(data.street);
         const firma = findFirma(data.city, data.street, data.number);
         const isValidAddress = !!firma;
         const flatInfo = data.flat && data.flat !== "BRAK" ? `/${data.flat}` : '';
-        const adres = `${data.city}, ul. ${data.street} ${data.number}${flatInfo}`;
+        const streetCleaned = data.street.replace(/^(ul\.|ulica|al\.|aleja|aleje|pl\.|plac|os\.|osiedle)\s+/i, '').trim();
+const adres = `${data.city}, ul. ${streetCleaned} ${data.number}${flatInfo}`;
 
         console.log(`[${callSid}] Firma: ${firma}, Obsługiwany: ${isValidAddress}`);
 
@@ -387,6 +409,7 @@ Zasady:
 - numer budynku może zawierać jedną literę bezpośrednio po cyfrach np. "139a", "95k"
 - numer mieszkania to osobna liczba PO numerze budynku, np. "139a 13" → number: "139a", flat: "13" - NIE łącz w "139a13"
 - słowo "przez" oznacza separator między numerem budynku a mieszkaniem, np. "139a przez 13" → number: "139a", flat: "13"
+- pole "street" zawiera TYLKO nazwę ulicy BEZ słów "ul.", "ulica", "al.", "aleja", "pl.", "plac", "os.", "osiedle" - usuń je z początku nazwy ulicy
 - jeśli brak danych wpisz "BRAK"
 - zwróć tylko JSON`
                     },
@@ -401,10 +424,12 @@ Zasady:
         const data = JSON.parse(raw);
         console.log("DANE Z SMS:", data);
 
+                data.street = normalizujUlice(data.street);
         const firma = findFirma(data.city, data.street, data.number);
         const isValidAddress = !!firma;
         const flatInfo = data.flat && data.flat !== "BRAK" ? `/${data.flat}` : '';
-        const adres = `${data.city}, ul. ${data.street} ${data.number}${flatInfo}`;
+        const streetCleaned = data.street.replace(/^(ul\.|ulica|al\.|aleja|aleje|pl\.|plac|os\.|osiedle)\s+/i, '').trim();
+const adres = `${data.city}, ul. ${streetCleaned} ${data.number}${flatInfo}`;
 
         console.log("FIRMA:", firma, "OBSŁUGIWANY:", isValidAddress);
 
