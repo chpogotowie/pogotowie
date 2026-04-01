@@ -160,8 +160,6 @@ function findFirma(city, street, number) {
     }
     return null;
 }
-    return null;
-}
 
 function normalizujUlice(street) {
     const s = street.toLowerCase();
