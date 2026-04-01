@@ -139,6 +139,7 @@
 Świętochłowice ul. Bankowa 3
 Świętochłowice ul. Barlickiego 1
 Świętochłowice ul. Barlickiego 3
+Świętochłowice ul. Barlickiego 3a
 Świętochłowice ul. Barlickiego 5
 Świętochłowice ul. Barlickiego 5a
 Świętochłowice ul. Barlickiego 5b
@@ -235,6 +236,9 @@
 Świętochłowice ul. Hutnicza 1
 Świętochłowice ul. Hutnicza 1a
 Świętochłowice ul. Hutnicza 1b
+Świętochłowice ul. Hutnicza 1c
+Świętochłowice ul. Hutnicza 1d
+Świętochłowice ul. Hutnicza 1e
 Świętochłowice ul. Hutnicza 5
 Świętochłowice ul. Hutnicza 6
 Świętochłowice ul. Hutnicza 7a
@@ -269,23 +273,23 @@
 Świętochłowice ul. Barlickiego 47
 Świętochłowice ul. Barlickiego 49
 Świętochłowice ul. Barlickiego 48
-Świętochłowice ul. Boczną 2
-Świętochłowice ul. Boczną 2a
-Świętochłowice ul. Boczną 3
-Świętochłowice ul. Boczną 3a
-Świętochłowice ul. Boczną 3b
-Świętochłowice ul. Boczną 4
-Świętochłowice ul. Boczną 4a
-Świętochłowice ul. Boczną 4b
-Świętochłowice ul. Boczną 5
-Świętochłowice ul. Boczną 5a
-Świętochłowice ul. Boczną 5b
-Świętochłowice ul. Boczną 6
-Świętochłowice ul. Boczną 6a
-Świętochłowice ul. Boczną 6b
-Świętochłowice ul. Boczną 8
-Świętochłowice ul. Boczną 8a
-Świętochłowice ul. Boczną 8b
+Świętochłowice ul. Boczna 2
+Świętochłowice ul. Boczna 2a
+Świętochłowice ul. Boczna 3
+Świętochłowice ul. Boczna 3a
+Świętochłowice ul. Boczna 3b
+Świętochłowice ul. Boczna 4
+Świętochłowice ul. Boczna 4a
+Świętochłowice ul. Boczna 4b
+Świętochłowice ul. Boczna 5
+Świętochłowice ul. Boczna 5a
+Świętochłowice ul. Boczna 5b
+Świętochłowice ul. Boczna 6
+Świętochłowice ul. Boczna 6a
+Świętochłowice ul. Boczna 6b
+Świętochłowice ul. Boczna 8
+Świętochłowice ul. Boczna 8a
+Świętochłowice ul. Boczna 8b
 Świętochłowice ul. Brzozowskiego 2
 Świętochłowice ul. Brzozowskiego 2a
 Świętochłowice ul. Chorzowska 87
@@ -302,11 +306,17 @@
 Świętochłowice ul. Hajduki 34
 Świętochłowice ul. Harcerska 14
 Świętochłowice ul. MD Hoffmann 3
+Świętochłowice ul. Marii Dulcissimy Hoffmann 3
 Świętochłowice ul. MD Hoffmann 5
+Świętochłowice ul. Marii Dulcissimy Hoffmann 5
 Świętochłowice ul. MD Hoffmann 6
+Świętochłowice ul. Marii Dulcissimy Hoffmann 6
 Świętochłowice ul. MD Hoffmann 10 (garaże)
+Świętochłowice ul. Marii Dulcissimy Hoffmann 10 (garaże)
 Świętochłowice ul. MD Hoffmann 13 (garaże)
+Świętochłowice ul. Marii Dulcissimy Hoffmann 13 (garaże)
 Świętochłowice ul. MD Hoffmann 15
+Świętochłowice ul. Marii Dulcissimy Hoffmann 15
 Świętochłowice ul. Hutnicza 1
 Świętochłowice ul. Hutnicza 1a
 Świętochłowice ul. Hutnicza 1b
@@ -326,6 +336,15 @@
 Świętochłowice ul. Katowicka 75a
 Świętochłowice ul. Katowicka 78
 Świętochłowice ul. Katowicka 78a
+Świętochłowice ul. Katowicka 41a
+Świętochłowice ul. Katowicka 41b
+Świętochłowice ul. Katowicka 43
+Świętochłowice ul. Katowicka 43b
+Świętochłowice ul. Katowicka 43c
+Świętochłowice ul. Katowicka 45
+Świętochłowice ul. Katowicka 45a
+Świętochłowice ul. Katowicka 57b
+Świętochłowice ul. Katowicka 57d
 Świętochłowice ul. Kochanowskiego 2
 Świętochłowice ul. Kochanowskiego 3
 Świętochłowice ul. Kochanowskiego 6
@@ -351,6 +370,13 @@
 Świętochłowice ul. Łagiewnicka 5a
 Świętochłowice ul. Łagiewnicka 5b
 Świętochłowice ul. Łagiewnicka 5c
+Świętochłowice ul. Łagiewnicka 5d
+Świętochłowice ul. Łagiewnicka 5e
+Świętochłowice ul. Łagiewnicka 5f
+Świętochłowice ul. Łagiewnicka 5g
+Świętochłowice ul. Łagiewnicka 5h
+Świętochłowice ul. Łagiewnicka 16c
+Świętochłowice ul. Łagiewnicka 62d
 Świętochłowice ul. Łagiewnicka 9
 Świętochłowice ul. Łagiewnicka 9a
 Świętochłowice ul. Łagiewnicka 11
@@ -420,6 +446,7 @@
 Świętochłowice ul. Kubiny 3a
 Świętochłowice ul. Kubiny 4
 Świętochłowice ul. Kubiny 12
+Świętochłowice ul. Kubiny 13
 Świętochłowice ul. Kubiny 14
 Świętochłowice ul. Kubiny 16
 Świętochłowice ul. Kubiny 16a
@@ -543,6 +570,7 @@
 Świętochłowice ul. Sienkiewicza 2
 Świętochłowice ul. Sienkiewicza 3
 Świętochłowice ul. Sienkiewicza 4
+Świętochłowice ul. Sienkiewicza 9a
 Świętochłowice ul. Sikorskiego 9a
 Świętochłowice ul. Pieczki 1
 Świętochłowice ul. Pieczki 3
@@ -618,6 +646,14 @@
 Świętochłowice ul. Szpitalna 9
 Świętochłowice ul. Szpitalna 11
 Świętochłowice ul. Szpitalna 13
+Świętochłowice ul. Szpitalna 6b
+Świętochłowice ul. Szpitalna 6c
+Świętochłowice ul. Szpitalna 6d
+Świętochłowice ul. Szpitalna 6e
+Świętochłowice ul. Szpitalna 7a
+Świętochłowice ul. Szpitalna 9a
+Świętochłowice ul. Szpitalna 11a
+Świętochłowice ul. Szpitalna 13a
 Świętochłowice ul. Szpitalna 6
 Świętochłowice ul. Szpitalna 6a
 Świętochłowice ul. Polaka 4
@@ -627,6 +663,7 @@
 Świętochłowice ul. Sztygarska 4
 Świętochłowice ul. Sztygarska 4a
 Świętochłowice ul. Sztygarska 6
+Świętochłowice ul. Sztygarska 6a
 Świętochłowice ul. Westerplatte 3a
 Świętochłowice ul. Węglowa 1
 Świętochłowice ul. Polna 19
@@ -740,6 +777,7 @@
 Świętochłowice ul. Wyzwolenia 71
 Świętochłowice ul. Wyzwolenia 73
 Świętochłowice ul. Wyzwolenia 73a
+Świętochłowice ul. Wallisa 8
 Świętochłowice ul. Zawadzkiego 6
 Świętochłowice ul. Zubrzyckiego 2
 Świętochłowice ul. Zubrzyckiego 4
@@ -769,4 +807,57 @@
 Świętochłowice ul. Żołnierska 25a
 Świętochłowice ul. Żołnierska 26
 Świętochłowice ul. Żołnierska 28
+Świętochłowice ul. Bytomska 53 garaże 
+Świętochłowice ul. Bytomska 1 
+Świętochłowice ul. Dmowskiego 16 
+Świętochłowice ul. Dworocowa 13 
+Świętochłowice ul. Barlickiego 18b 
+Świętochłowice ul. Hajduki 19 garaże 
+Świętochłowice ul. MD Hoffmann 10 garaże 
+Świętochłowice ul. MD Hoffmann 13 garaże 
+Świętochłowice ul. Hutnicza 1c 
+Świętochłowice ul. Hutnicza 1d 
+Świętochłowice ul. Hutnicza 1e 
+Świętochłowice ul. Hutnicza 6a 
+Świętochłowice ul. Katowicka 32 
+Świętochłowice ul. Katowicka 32 garaż 
+Świętochłowice ul. Katowicka 33 
+Świętochłowice ul. Katowicka 33a 
+Świętochłowice ul. Katowicka 37 
+Świętochłowice ul. Katowicka 37a 
+Świętochłowice ul. Katowicka 40 
+Świętochłowice ul. Katowicka 43a 
+Świętochłowice ul. Katowicka 57 
+Świętochłowice ul. Katowicka 57a 
+Świętochłowice ul. Katowicka 57d lokal 2 
+Świętochłowice ul. Katowicka 60 
+Świętochłowice ul. Łagiewnicka 16 OSP 
+Świętochłowice ul. Pl. Słowiański 1 
+Świętochłowice ul. Pl. Słowiański 2 
+Świętochłowice ul. Pl. Słowiański 10 
+Świętochłowice ul. Pl. Słowiański 13 
+Świętochłowice ul. Pl. Słowiański 13a 
+Świętochłowice ul. Powstańców Śląskich 2 
+Świętochłowice ul. Powstańców Śląskich 3 
+Świętochłowice ul. Powstańców Śląskich 4 
+Świętochłowice ul. Powstańców Śląskich 5 
+Świętochłowice ul. Powstańców Śląskich 6 
+Świętochłowice ul. Powstańców Śląskich 7 
+Świętochłowice ul. Powstańców Śląskich 8 
+Świętochłowice ul. Powstańców Śląskich 9 
+Świętochłowice ul. Powstańców Śląskich 10 
+Świętochłowice ul. Powstańców Śląskich 11 
+Świętochłowice ul. Powstańców Śląskich 13 
+Świętochłowice ul. Powstańców Śląskich 15 
+Świętochłowice ul. Powstańców Śląskich 17 
+Świętochłowice ul. Powstańców Śląskich 19 
+Świętochłowice ul. Przybyły 4 
+Świętochłowice ul. Przybyły 6 
+Świętochłowice ul. Reja 1 
+Świętochłowice ul. Reja 3 
+Świętochłowice ul. Reja 8 
+Świętochłowice ul. Reja 8a 
+Świętochłowice ul. St. Bytomskich 12d 
+Świętochłowice ul. St. Bytomskich 14c 
+Świętochłowice ul. St. Bytomskich 14d
 Chorzów ul. Żołnierzy Września 75

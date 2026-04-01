@@ -338,7 +338,7 @@ Zasady:
 
         if (isBadData) {
             if (callerPhone) {
-                await sendSms(callerPhone, `Nie udało się rozpoznać zgłoszenia.\nProsimy o ponowne skontaktowanie się.);
+                await sendSms(callerPhone, `Nie udało się rozpoznać zgłoszenia.\nProsimy o ponowne skontaktowanie się.`);
             }
             return;
         }
