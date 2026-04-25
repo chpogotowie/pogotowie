@@ -1,10 +1,21 @@
 Świętochłowice ul. Armii Krajowej 2
+Świętochłowice ul. Brzozowa 4
+Świętochłowice ul. Bytomska 44
+Świętochłowice ul. Bytomska 44a
 Świętochłowice ul. Chorzowska 30
 Świętochłowice ul. Chorzowska 32
+Świętochłowice ul. Chorzowska 57
+Świętochłowice ul. Chropaczowska 15
+Świętochłowice ul. Chropaczowska 15a
+Świętochłowice ul. Chropaczowska 16
 Świętochłowice ul. Górna 3
 Świętochłowice ul. Imieli 9
+Świętochłowice ul. Jana Imieli 9
 Świętochłowice ul. Imieli 11
+Świętochłowice ul. Jana Imieli 11
 Świętochłowice ul. Kościelna 12
+Świętochłowice ul. Kościelna 12a
+Świętochłowice ul. Kościelna 17
 Świętochłowice ul. Kościelna 17a
 Świętochłowice ul. Kościelna 17b
 Świętochłowice ul. Kościelna 17c
@@ -16,39 +27,56 @@
 Świętochłowice ul. Łagiewnicka 52
 Świętochłowice ul. Łagiewnicka 64
 Świętochłowice ul. Michalskiego 9
+Świętochłowice ul. Księdza Józefa Michalskiego 9
 Świętochłowice ul. Michalskiego 11
+Świętochłowice ul. Księdza Józefa Michalskiego 11
 Świętochłowice ul. Michalskiego 13
+Świętochłowice ul. Księdza Józefa Michalskiego 13
 Świętochłowice ul. Michalskiego 15
+Świętochłowice ul. Księdza Józefa Michalskiego 15
 Świętochłowice ul. Michalskiego 17
+Świętochłowice ul. Księdza Józefa Michalskiego 17
 Świętochłowice ul. Michalskiego 19
+Świętochłowice ul. Księdza Józefa Michalskiego 19
 Świętochłowice ul. Michalskiego 21
+Świętochłowice ul. Księdza Józefa Michalskiego 21
 Świętochłowice ul. Michalskiego 23
+Świętochłowice ul. Księdza Józefa Michalskiego 23
 Świętochłowice ul. Michalskiego 25
+Świętochłowice ul. Księdza Józefa Michalskiego 25
 Świętochłowice ul. Michalskiego 27
+Świętochłowice ul. Księdza Józefa Michalskiego 27
 Świętochłowice ul. Michalskiego 29
+Świętochłowice ul. Księdza Józefa Michalskiego 29
 Świętochłowice ul. Mickiewicza 9
+Świętochłowice ul. Adama Mickiewicza 9
 Świętochłowice ul. Mickiewicza 10
+Świętochłowice ul. Adama Mickiewicza 10
 Świętochłowice ul. Mickiewicza 12
+Świętochłowice ul. Adama Mickiewicza 12
 Świętochłowice ul. Mickiewicza 14
+Świętochłowice ul. Adama Mickiewicza 14
 Świętochłowice ul. Moniuszki 2
+Świętochłowice ul. Stanisława Moniuszki 2
 Świętochłowice ul. Moniuszki 4
+Świętochłowice ul. Stanisława Moniuszki 4
 Świętochłowice ul. Moniuszki 6
+Świętochłowice ul. Stanisława Moniuszki 6
 Świętochłowice ul. Moniuszki 8
+Świętochłowice ul. Stanisława Moniuszki 8
 Świętochłowice ul. Moniuszki 10
+Świętochłowice ul. Stanisława Moniuszki 10
 Świętochłowice ul. Moniuszki 12
+Świętochłowice ul. Stanisława Moniuszki 12
 Świętochłowice ul. Moniuszki 14
+Świętochłowice ul. Stanisława Moniuszki 14
 Świętochłowice ul. Pileckiego 16
+Świętochłowice ul. Witolda Pileckiego 16
 Świętochłowice ul. Pileckiego 20
-
+Świętochłowice ul. Witolda Pileckiego 20
 Świętochłowice ul. 3 Maja 154
 Świętochłowice ul. 3 Maja 154a
 Świętochłowice ul. 3 Maja 158
-Świętochłowice ul. Bytomska 44
-Świętochłowice ul. Bytomska 44a
-Świętochłowice ul. Chropaczowska 15
-Świętochłowice ul. Chropaczowska 15a
-Świętochłowice ul. Chropaczowska 16
-
 Chorzów ul. 3 Maja 154
 Chorzów ul. 3 Maja 154a
 Chorzów ul. 3 Maja 158
@@ -60,8 +88,6 @@ Chorzów ul. Chropaczowska 16
 Ruda Śląska ul. Gajowa 47
 Ruda Śląska ul. Gajowa 47a
 Ruda Śląska ul. Gajowa 47b
-Ruda Śląska ul. Kościelna 17
-Ruda Śląska ul. Kościelna 17b
 Ruda Śląska ul. Oświęcimska 48
 Ruda Śląska ul. Oświęcimska 48a
 Ruda Śląska ul. Oświęcimska 48b
@@ -79,6 +105,12 @@ Ruda Śląska ul. Warsztatowa 4
 Ruda Śląska ul. Warsztatowa 4a
 Ruda Śląska ul. Warsztatowa 4b
 Ruda Śląska ul. Warsztatowa 4c
+Ruda Śląska ul. Warsztatowa 4d
+Ruda Śląska ul. Warsztatowa 4e
+Ruda Śląska ul. Warsztatowa 5
+Ruda Śląska ul. Kościelna 17
+Ruda Śląska ul. Kościelna 17b
+Katowice ul. Kijowska 85
 Katowice ul. Kijowska 95a
 Katowice ul. Kijowska 95b
 Katowice ul. Kijowska 95c
@@ -101,6 +133,7 @@ Katowice ul. Kijowska 97h
 Katowice ul. Kijowska 97i
 Katowice ul. Kijowska 97j
 Katowice ul. Kijowska 97k
+Katowice ul. Krucza 80
 Katowice ul. Krucza 80a
 Katowice ul. Krucza 80b
 Katowice ul. Krucza 80c
@@ -110,6 +143,7 @@ Katowice ul. Krucza 80f
 Katowice ul. Krucza 80g
 Katowice ul. Krucza 80h
 Katowice ul. Krucza 80i
+Katowice ul. Krucza 82
 Katowice ul. Krucza 82a
 Katowice ul. Krucza 82b
 Katowice ul. Krucza 82c

@@ -1,118 +1,152 @@
-chorzow ul krotka 5
-chorzow ul swidra 3
-chorzow ul 11-listopada 47
-chorzow ul krotka 6
-chorzow ul swidra 16
-chorzow ul 11-listopada 62
-chorzow ul swidra 18
-chorzow ul 11-listopada 64
-chorzow ul lipinska 4
-chorzow ul 11-listopada 66
-chorzow ul lipinska 6
-chorzow ul weglowa 7
-chorzow ul 11-listopada 68
-chorzow ul lipinska 7
-chorzow ul weglowa 11
-chorzow ul 11-listopada 76
-chorzow ul lompy 14
-chorzow ul weglowa 9
-chorzow ul 11-listopada 78
-chorzow ul lompy 18
-chorzow ul wiejska 2
-chorzow ul wiejska 2a
-chorzow ul wiejska 2b
-chorzow ul wiejska 2c
-chorzow ul 11-listopada 80
-chorzow ul lompy 19
-chorzow ul wiejska 6
-chorzow ul lompy 20
-chorzow ul wiejska 10
-chorzow ul antoniowska 1
-chorzow ul wiejska 12
-chorzow ul antoniowska 3
-chorzow ul niedurnego 4
-chorzow ul wiejska 14
-chorzow ul antoniowska 5
-chorzow ul nowa 2
-chorzow ul wiejska 16
-chorzow ul beskidzka 34
-chorzow ul chalupki 13
-chorzow ul chalupki 15
-chorzow ul chalupki 19
-chorzow ul poleska 2
-chorzow ul polna 1
-chorzow ul polna 3
-chorzow ul poprzeczna 1
-chorzow ul poprzeczna 5
-chorzow ul wroblewskiego 8
-chorzow ul wroblewskiego 8a
-chorzow ul wroblewskiego 14
-chorzow ul wroblewskiego 14a
-chorzow ul wroblewskiego 16
-chorzow ul wroblewskiego 16a
-chorzow ul poprzeczna 3
-chorzow ul cieszynska 15
-chorzow ul cieszynska 17
-chorzow ul pudlerska 8
-chorzow ul cieszynska 19
-chorzow ul cieszynska 20
-chorzow ul rebaczy 21
-chorzow ul cieszynska 22
-chorzow ul rebaczy 23
-chorzow ul cieszynska 24
-chorzow ul rebaczy 25
-chorzow ul cieszynska 26
-chorzow ul rebaczy 27
-chorzow ul cieszynska 28
-chorzow ul rebaczy 29
-chorzow ul rozbarska 2
-chorzow ul florianska 7
-chorzow ul rozbarska 6
-chorzow ul gagarina 39
-chorzow ul stabika 1
-chorzow ul glowna 5
-chorzow ul stabika 2
-chorzow ul glowna 5a
-chorzow ul stabika 3
-chorzow ul glowna 49
-chorzow ul glowna 49a
-chorzow ul glowna 49b
-chorzow ul glowna 49c
-chorzow ul stabika 4
-chorzow ul glowna 51
-chorzow ul glowna 51a
-chorzow ul stabika 5
-chorzow ul glowna 58
-chorzow ul stabika 7
-chorzow ul glowna 60
-chorzow ul stabika 9
-chorzow ul glowna 62
-chorzow ul stabika 11
-chorzow ul styczynskiego 36
-chorzow ul kalidego 81
-chorzow ul styczynskiego 38
-chorzow ul kalidego 83
-chorzow ul styczynskiego 40
-chorzow ul kalidego 85
-chorzow ul styczynskiego 42
-chorzow ul kalidego 87
-chorzow ul styczynskiego 43
-chorzow ul katowicka 120
-chorzow ul styczynskiego 44
-chorzow ul katowicka 122
-chorzow ul styczynskiego 46
-chorzow ul katowicka 128
-chorzow ul styczynskiego 58
-chorzow ul katowicka 132
-chorzow ul katowicka 130
-chorzow ul katowicka 130a
-chorzow ul katowicka 130b
-chorzow ul katowicka 130c
-chorzow ul styczynskiego 60
-chorzow ul katowicka 134
-chorzow ul katowicka 134a
-chorzow ul katowicka 134b
-chorzow ul sztygarska 9
-chorzow ul sztygarska 2
-chorzow ul sztygarska 8
-chorzow ul krotka 4
+Chorzów ul. 11 Listopada 47
+Chorzów ul. 11 Listopada 62
+Chorzów ul. 11 Listopada 64
+Chorzów ul. 11 Listopada 66
+Chorzów ul. 11 Listopada 68
+Chorzów ul. 11 Listopada 76
+Chorzów ul. 11 Listopada 78
+Chorzów ul. 11 Listopada 80
+Chorzów ul. Antoniowska 1
+Chorzów ul. Antoniowska 3
+Chorzów ul. Antoniowska 5
+Chorzów ul. Beskidzka 34
+Chorzów ul. Chałupki 13
+Chorzów ul. Chałupki 15
+Chorzów ul. Chałupki 19
+Chorzów ul. Cieszyńska 15
+Chorzów ul. Cieszyńska 17
+Chorzów ul. Cieszyńska 19
+Chorzów ul. Cieszyńska 20
+Chorzów ul. Cieszyńska 22
+Chorzów ul. Cieszyńska 24
+Chorzów ul. Cieszyńska 26
+Chorzów ul. Cieszyńska 28
+Chorzów ul. Floriańska 7
+Chorzów ul. Gagarina 39
+Chorzów ul. Jurija Gagarina 39
+Chorzów ul. Główna 5
+Chorzów ul. Główna 5a
+Chorzów ul. Główna 49
+Chorzów ul. Główna 49a
+Chorzów ul. Główna 49b
+Chorzów ul. Główna 49c
+Chorzów ul. Główna 51
+Chorzów ul. Główna 51a
+Chorzów ul. Główna 58
+Chorzów ul. Główna 60
+Chorzów ul. Główna 62
+Chorzów ul. Gołębia 3
+Chorzów ul. Kalidego 81
+Chorzów ul. Teodora Kalidego 81
+Chorzów ul. Kalidego 83
+Chorzów ul. Teodora Kalidego 83
+Chorzów ul. Kalidego 85
+Chorzów ul. Teodora Kalidego 85
+Chorzów ul. Kalidego 87
+Chorzów ul. Teodora Kalidego 87
+Chorzów ul. Katowicka 120
+Chorzów ul. Katowicka 122
+Chorzów ul. Katowicka 128
+Chorzów ul. Katowicka 130
+Chorzów ul. Katowicka 130a
+Chorzów ul. Katowicka 130b
+Chorzów ul. Katowicka 130c
+Chorzów ul. Katowicka 132
+Chorzów ul. Katowicka 134
+Chorzów ul. Katowicka 134a
+Chorzów ul. Katowicka 134b
+Chorzów ul. Krótka 4
+Chorzów ul. Krótka 5
+Chorzów ul. Krótka 6
+Chorzów ul. Lipińska 4
+Chorzów ul. Lipińska 6
+Chorzów ul. Lipińska 7
+Chorzów ul. Lompy 14
+Chorzów ul. Józefa Lompy 14
+Chorzów ul. Lompy 18
+Chorzów ul. Józefa Lompy 18
+Chorzów ul. Lompy 19
+Chorzów ul. Józefa Lompy 19
+Chorzów ul. Lompy 20
+Chorzów ul. Józefa Lompy 20
+Chorzów ul. Niedurnego 4
+Chorzów ul. Piotra Niedurnego 4
+Chorzów ul. Nowa 2
+Chorzów ul. Poleska 2
+Chorzów ul. Polna 1
+Chorzów ul. Polna 3
+Chorzów ul. Poprzeczna 1
+Chorzów ul. Poprzeczna 3
+Chorzów ul. Poprzeczna 5
+Chorzów ul. Pudlerska 8
+Chorzów ul. Rębaczy 21
+Chorzów ul. Rębaczy 23
+Chorzów ul. Rębaczy 25
+Chorzów ul. Rębaczy 27
+Chorzów ul. Rębaczy 29
+Chorzów ul. Rozbarska 2
+Chorzów ul. Rozbarska 6
+Chorzów ul. Stabika 1
+Chorzów ul. Antoniego Stabika 1
+Chorzów ul. Stabika 2
+Chorzów ul. Antoniego Stabika 2
+Chorzów ul. Stabika 3
+Chorzów ul. Antoniego Stabika 3
+Chorzów ul. Stabika 4
+Chorzów ul. Antoniego Stabika 4
+Chorzów ul. Stabika 5
+Chorzów ul. Antoniego Stabika 5
+Chorzów ul. Stabika 7
+Chorzów ul. Antoniego Stabika 7
+Chorzów ul. Stabika 9
+Chorzów ul. Antoniego Stabika 9
+Chorzów ul. Stabika 11
+Chorzów ul. Antoniego Stabika 11
+Chorzów ul. Styczyńskiego 36
+Chorzów ul. Wincentego Styczyńskiego 36
+Chorzów ul. Styczyńskiego 38
+Chorzów ul. Wincentego Styczyńskiego 38
+Chorzów ul. Styczyńskiego 40
+Chorzów ul. Wincentego Styczyńskiego 40
+Chorzów ul. Styczyńskiego 42
+Chorzów ul. Wincentego Styczyńskiego 42
+Chorzów ul. Styczyńskiego 43
+Chorzów ul. Wincentego Styczyńskiego 43
+Chorzów ul. Styczyńskiego 44
+Chorzów ul. Wincentego Styczyńskiego 44
+Chorzów ul. Styczyńskiego 46
+Chorzów ul. Wincentego Styczyńskiego 46
+Chorzów ul. Styczyńskiego 58
+Chorzów ul. Wincentego Styczyńskiego 58
+Chorzów ul. Styczyńskiego 60
+Chorzów ul. Wincentego Styczyńskiego 60
+Chorzów ul. Sztygarska 2
+Chorzów ul. Sztygarska 8
+Chorzów ul. Sztygarska 9
+Chorzów ul. Świdra 3
+Chorzów ul. Świdra 16
+Chorzów ul. Świdra 18
+Chorzów ul. Węglowa 7
+Chorzów ul. Węglowa 9
+Chorzów ul. Węglowa 11
+Chorzów ul. Wiejska 2
+Chorzów ul. Wiejska 2a
+Chorzów ul. Wiejska 2b
+Chorzów ul. Wiejska 2c
+Chorzów ul. Wiejska 6
+Chorzów ul. Wiejska 10
+Chorzów ul. Wiejska 12
+Chorzów ul. Wiejska 14
+Chorzów ul. Wiejska 16
+Chorzów ul. Wróblewskiego 8
+Chorzów ul. Walerego Wróblewskiego 8
+Chorzów ul. Wróblewskiego 8a
+Chorzów ul. Walerego Wróblewskiego 8a
+Chorzów ul. Wróblewskiego 14
+Chorzów ul. Walerego Wróblewskiego 14
+Chorzów ul. Wróblewskiego 14a
+Chorzów ul. Walerego Wróblewskiego 14a
+Chorzów ul. Wróblewskiego 16
+Chorzów ul. Walerego Wróblewskiego 16
+Chorzów ul. Wróblewskiego 16a
+Chorzów ul. Walerego Wróblewskiego 16a
