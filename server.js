@@ -344,7 +344,7 @@ app.post('/voice', (req, res) => {
         action: `${BASE_URL}/voice/menu`, method: 'POST'
     });
     gather.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
-        'Pogotowie awaryjne. Aby zgłosić awarię, naciśnij 1. Aby porozmawiać z konsultantem, naciśnij 2.');
+        'Pogotowie awaryjne. Aby zgłosić awarię, naciśnij 1. Jeżeli jesteś z Służb bezpieczeństwa publicznego, naciśnij 2.');
     twiml.redirect(`${BASE_URL}/voice`);
 
     res.type('text/xml');
