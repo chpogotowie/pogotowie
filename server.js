@@ -464,8 +464,6 @@ app.post('/voice/potwierdz', (req, res) => {
 });
 
 
-}
-
 app.post('/sms', async (req, res) => {
     const incomingMsg = req.body.Body || '';
     const phone = req.body.From || '';
