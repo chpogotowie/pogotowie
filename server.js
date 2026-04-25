@@ -223,6 +223,48 @@ app.post('/voice', (req, res) => {
     res.send(twiml.toString());
 });
 
+
+app.post('/voice/menu', (req, res) => {
+    const callSid = req.body.CallSid;
+    const digit = req.body.Digits || '';
+    console.log(`[${callSid}] Menu wybór: "${digit}"`);
+
+    const twiml = new VoiceResponse();
+
+    if (digit === '1') {
+        twiml.redirect(`${BASE_URL}/voice/awaria`);
+    } else if (digit === '2') {
+        twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
+            'Łączę z konsultantem.');
+        twiml.dial(FORWARD_TO);
+    } else {
+        twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
+            'Nieprawidłowy wybór.');
+        twiml.redirect(`${BASE_URL}/voice`);
+    }
+
+    res.type('text/xml');
+    res.send(twiml.toString());
+});
+
+app.post('/voice/awaria', (req, res) => {
+    const twiml = new VoiceResponse();
+    const gather = twiml.gather({
+        input: 'speech', language: 'pl-PL',
+        speechTimeout: 'auto', timeout: 10,
+        action: `${BASE_URL}/voice/krok2`, method: 'POST'
+    });
+    gather.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
+        'Proszę podać miasto:');
+    twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
+        'Nie usłyszałem miasta. Spróbuj ponownie.');
+    twiml.redirect(`${BASE_URL}/voice/awaria`);
+
+    res.type('text/xml');
+    res.send(twiml.toString());
+});
+
+
 app.post('/voice/krok2', (req, res) => {
     const callSid = req.body.CallSid;
     const city = req.body.SpeechResult || '';
@@ -233,13 +275,12 @@ app.post('/voice/krok2', (req, res) => {
 
     const twiml = new VoiceResponse();
     const gather = twiml.gather({
-        input: 'speech', language: 'pl-PL',
-        speechTimeout: 'auto', timeout: 10,
-        action: `${BASE_URL}/voice/krok3`, method: 'POST'
+        input: 'dtmf', numDigits: 1, timeout: 8,
+        action: `${BASE_URL}/voice/menu`, method: 'POST'
     });
-    gather.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Proszę podać ulicę wraz z numerem domu i mieszkania:');
-    twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Nie usłyszałem ulicy. Spróbuj ponownie.');
-    twiml.redirect(`${BASE_URL}/voice/krok2`);
+    gather.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
+        'Pogotowie awaryjne. Aby zgłosić awarię, naciśnij 1. Aby porozmawiać z konsultantem, naciśnij 2.');
+    twiml.redirect(`${BASE_URL}/voice`);
 
     res.type('text/xml');
     res.send(twiml.toString());
