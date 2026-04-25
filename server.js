@@ -199,24 +199,22 @@ app.post('/voice', (req, res) => {
     const callSid = req.body.CallSid;
     const callerPhone = req.body.From || '';
 
- if (EXCLUDED_NUMBERS.includes(callerPhone)) {
+    if (EXCLUDED_NUMBERS.includes(callerPhone)) {
         const twiml = new VoiceResponse();
         twiml.dial(FORWARD_TO);
         res.type('text/xml');
         res.send(twiml.toString());
         return;
     }
-    sessions.set(callSid, { callerPhone }); 
-
+    sessions.set(callSid, { callerPhone });
 
     const twiml = new VoiceResponse();
     const gather = twiml.gather({
-        input: 'speech', language: 'pl-PL',
-        speechTimeout: 'auto', timeout: 10,
-        action: `${BASE_URL}/voice/krok2`, method: 'POST'
+        input: 'dtmf', numDigits: 1, timeout: 8,
+        action: `${BASE_URL}/voice/menu`, method: 'POST'
     });
-    gather.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Pogotowie awaryjne. Proszę podać miasto:');
-    twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Nie usłyszałem miasta. Spróbuj ponownie.');
+    gather.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
+        'Pogotowie awaryjne. Aby zgłosić awarię, naciśnij 1. Aby porozmawiać z konsultantem, naciśnij 2.');
     twiml.redirect(`${BASE_URL}/voice`);
 
     res.type('text/xml');
@@ -275,12 +273,13 @@ app.post('/voice/krok2', (req, res) => {
 
     const twiml = new VoiceResponse();
     const gather = twiml.gather({
-        input: 'dtmf', numDigits: 1, timeout: 8,
-        action: `${BASE_URL}/voice/menu`, method: 'POST'
+        input: 'speech', language: 'pl-PL',
+        speechTimeout: 'auto', timeout: 10,
+        action: `${BASE_URL}/voice/krok3`, method: 'POST'
     });
-    gather.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
-        'Pogotowie awaryjne. Aby zgłosić awarię, naciśnij 1. Aby porozmawiać z konsultantem, naciśnij 2.');
-    twiml.redirect(`${BASE_URL}/voice`);
+    gather.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Proszę podać ulicę wraz z numerem domu i mieszkania:');
+    twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Nie usłyszałem ulicy. Spróbuj ponownie.');
+    twiml.redirect(`${BASE_URL}/voice/krok2`);
 
     res.type('text/xml');
     res.send(twiml.toString());
