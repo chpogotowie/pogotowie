@@ -70,35 +70,22 @@ function normalize(text) {
     if (!text) return '';
     return text
         .toLowerCase()
+        .replace(/ł/g, 'l')
+        .replace(/Ł/g, 'l')
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[-]/g, ' ')
+        .replace(/[-/]/g, ' ')
         .replace(/\./g, '')
         .replace(/,/g, '')
         .replace(/\s+/g, ' ')
         .trim();
 }
 
-function stemWord(word) {
-    return word
-        .replace(/ej$/, 'a')
-        .replace(/ą$/, 'a')
-        .replace(/ego$/, '')
-        .replace(/owie$/, '')
-        .replace(/ie$/, 'a')
-        .replace(/iego$/, '')
-        .replace(/owy$/, 'owa')
-        .replace(/owe$/, 'owa')
-        .replace(/owym$/, 'owa')
-        .replace(/y$/, 'a');
-}
-
 function simplifyAddress(text) {
     return normalize(text)
-        .replace(/\b(ul|ulica|al|aleja|aleje|pl|plac|os|osiedle|skwer)\b/g, '')
+        .replace(/\b(ul|ulica|al|aleja|aleje|pl|plac|os|osiedle|skwer|dr|doktora|ks|ksiedza|sw|swietego|swietej|gen|generala|prof|profesora|im|imienia)\b/g, '')
         .split(' ')
         .filter(word => word.length > 1 || /^\d+$/.test(word))
-        .map(stemWord)
         .join(' ')
         .replace(/\s+/g, ' ')
         .trim();
@@ -108,14 +95,32 @@ function tokenize(text) {
     return simplifyAddress(text).split(' ').filter(p => p.length > 0);
 }
 
+function tokensMatch(a, b) {
+    if (a === b) return true;
+    if (/^\d/.test(a) || /^\d/.test(b)) return false;
+    const minLen = Math.min(a.length, b.length);
+    if (minLen < 5) return false;
+    const minPrefix = Math.max(5, Math.floor(minLen * 0.7));
+    let i = 0;
+    while (i < minLen && a[i] === b[i]) i++;
+    return i >= minPrefix;
+}
+
+function tokenInList(token, list) {
+    return list.some(c => tokensMatch(token, c));
+}
+
 function addressesMatch(inputCityTokens, inputStreetTokens, inputNumber, candidateText) {
     const candidateTokens = tokenize(candidateText);
-    const streetMatch = inputStreetTokens.every(t => candidateTokens.includes(t));
+
+    const streetMatch = inputStreetTokens.every(t => tokenInList(t, candidateTokens));
     if (!streetMatch) return false;
-    const cityMatch = inputCityTokens.every(t => candidateTokens.includes(t));
+
+    const cityMatch = inputCityTokens.every(t => tokenInList(t, candidateTokens));
     if (!cityMatch) return false;
+
     if (inputNumber && inputNumber !== 'brak') {
-        const num = inputNumber.toLowerCase().trim();
+        const num = normalize(inputNumber);
         return candidateTokens.some(t => t === num);
     }
     return true;
@@ -143,7 +148,7 @@ console.log(`Załadowano adresów: MPGL=${mpglAddresses.length}, SDSM=${sdsmAddr
 function findFirma(city, street, number) {
     const inputCityTokens = tokenize(city);
     const inputStreetTokens = tokenize(street);
-    const inputNumber = (number || '').toLowerCase().trim();
+    const inputNumber = normalize(number || '');
     console.log(`SZUKAM: miasto=[${inputCityTokens}] ulica=[${inputStreetTokens}] numer=[${inputNumber}]`);
     const lists = [
         { name: 'MPGL', list: mpglAddresses },
@@ -158,6 +163,7 @@ function findFirma(city, street, number) {
         });
         if (match) return name;
     }
+    console.log('BRAK DOPASOWANIA dla:', { city, street, number });
     return null;
 }
 
@@ -304,7 +310,10 @@ async function processVoiceSession(callSid, session) {
   "problem": ""
 }
 Zasady:
-- popraw błędy wymowy i zapisu (np. "swietochlowice" → "Świętochłowice")
+- popraw błędy wymowy i zapisu (np. "swietochlowice" → "Świętochłowice", "halupki" → "Chałupki", "gołembia" → "Gołębia")
+- ZAWSZE zapisuj nazwę ulicy w MIANOWNIKU (forma podstawowa, jak na tabliczce z nazwą ulicy): np. "na Chałupkach" → "Chałupki", "z Gołębiej" → "Gołębia", "do Marii Dulcissimy Hoffmann" → "Marii Dulcissimy Hoffmann"
+- ZAWSZE zapisuj nazwę miasta w MIANOWNIKU: np. "w Świętochłowicach" → "Świętochłowice", "w Chorzowie" → "Chorzów"
+- ZAWSZE używaj polskich znaków diakrytycznych (ą, ć, ę, ł, ń, ó, ś, ź, ż) tam gdzie powinny być
 - UWAGA: nazwy ulic w Polsce często zaczynają się od liczby np. "11 Listopada", "1 Maja", "3 Maja", "29 Stycznia" - cała nazwa to ulica, nie mylić z numerem budynku
 - numer budynku to liczba podana PO nazwie ulicy, np. "11 Listopada 64" → street: "11 Listopada", number: "64"
 - flat to numer mieszkania jeśli podano po "/", np. "64/5" → number: "64", flat: "5"
@@ -400,7 +409,10 @@ app.post('/sms', async (req, res) => {
   "problem": ""
 }
 Zasady:
-- popraw błędy zapisu (np. "swietochlowice" → "Świętochłowice")
+- popraw błędy zapisu (np. "swietochlowice" → "Świętochłowice", "halupki" → "Chałupki", "gołembia" → "Gołębia")
+- ZAWSZE zapisuj nazwę ulicy w MIANOWNIKU (forma podstawowa, jak na tabliczce): np. "na Chałupkach" → "Chałupki", "z Gołębiej" → "Gołębia"
+- ZAWSZE zapisuj nazwę miasta w MIANOWNIKU: np. "w Świętochłowicach" → "Świętochłowice", "w Chorzowie" → "Chorzów"
+- ZAWSZE używaj polskich znaków diakrytycznych (ą, ć, ę, ł, ń, ó, ś, ź, ż) tam gdzie powinny być
 - UWAGA: nazwy ulic w Polsce często zaczynają się od liczby np. "11 Listopada", "1 Maja", "3 Maja" - cała nazwa to ulica, nie mylić z numerem budynku
 - numer budynku to liczba podana PO nazwie ulicy, np. "11 Listopada 64" → street: "11 Listopada", number: "64"
 - flat to numer mieszkania jeśli podano po "/", np. "64/5" → number: "64", flat: "5"
