@@ -421,6 +421,13 @@ Zasady:
     const data = JSON.parse(raw);
     console.log(`[${callSid}] Dane z GPT:`, data);
 
+    if (data.number && typeof data.number === 'string') {
+        data.number = data.number.toLowerCase().replace(/\s+/g, '');
+    }
+    if (data.flat && typeof data.flat === 'string') {
+        data.flat = data.flat.toLowerCase().replace(/\s+/g, '');
+    }
+
     const isBadData =
         !data.city || data.city === "BRAK" ||
         !data.street || data.street === "BRAK" ||
@@ -493,7 +500,7 @@ app.post('/voice/potwierdz', (req, res) => {
         sessions.delete(callSid);
         twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
             'Dobrze, podajmy dane jeszcze raz.');
-        twiml.redirect(`${BASE_URL}/voice`);
+                twiml.redirect(`${BASE_URL}/voice/awaria`);
         res.type('text/xml').send(twiml.toString());
     } else {
         twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
