@@ -325,6 +325,20 @@ app.use(bodyParser.json());
 
 const sessions = new Map();
 
+
+setInterval(() => {
+    const teraz = Date.now();
+    let usuniete = 0;
+    for (const [sid, sesja] of sessions) {
+        if (!sesja.utworzono) sesja.utworzono = teraz;
+        if (teraz - sesja.utworzono > 10 * 60 * 1000) {
+            sessions.delete(sid);
+            usuniete++;
+        }
+    }
+    if (usuniete > 0) console.log(`Wyczyszczono ${usuniete} starych sesji`);
+}, 60 * 1000);
+
 app.post('/voice', (req, res) => {
     const callSid = req.body.CallSid;
     const callerPhone = req.body.From || '';
@@ -491,10 +505,12 @@ app.post('/voice/przetworz', async (req, res) => {
         twiml.redirect(`${BASE_URL}/voice`);
 
         res.type('text/xml').send(twiml.toString());
-    } catch (err) {
+} catch (err) {
         console.error(`[${callSid}] Błąd /voice/przetworz:`, err.message);
+        sessions.delete(callSid);
         twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
-            'Wystąpił błąd. Prosimy zadzwonić ponownie.');
+            'Przepraszamy, wystąpił problem z systemem. Spróbujmy jeszcze raz.');
+        twiml.redirect(`${BASE_URL}/voice/awaria`);
         res.type('text/xml').send(twiml.toString());
     }
 });
@@ -537,7 +553,10 @@ Zasady:
                 }
             ]
         },
-        { headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` } }
+        {
+            headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` },
+            timeout: 10000
+        }
     );
 
     let raw = gptResponse.data.choices[0].message.content
@@ -674,7 +693,10 @@ Zasady:
                     { role: 'user', content: incomingMsg }
                 ]
             },
-            { headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` } }
+            {
+                headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` },
+                timeout: 10000
+            }
         );
 
         let raw = gptResponse.data.choices[0].message.content
