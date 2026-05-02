@@ -378,6 +378,7 @@ app.post('/voice/menu', (req, res) => {
         twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Łączę z konsultantem.');
         const dial = twiml.dial({ action: `${BASE_URL}/voice/po_polaczeniu`, timeout: 30 });
         dial.number(FORWARD_TO);
+        // Nie ma redirect - kończymy po przekierowaniu
     } else {
         twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Nieprawidłowy wybór.');
         twiml.redirect(`${BASE_URL}/voice`);
@@ -740,7 +741,7 @@ app.post('/voice/po_polaczeniu', (req, res) => {
     console.log(`Po połączeniu z konsultantem: ${dialStatus}`);
     if (dialStatus !== 'completed') {
         twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
-            'Konsultant jest niedostępny. Prosimy spróbować ponownie lub zgłosić awarię przez opcję pierwszą.');
+            'Konsultant jest teraz zajęty, prosimy zadzwonić później.');
     }
     twiml.hangup();
     res.type('text/xml').send(twiml.toString());
