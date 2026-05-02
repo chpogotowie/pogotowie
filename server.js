@@ -11,7 +11,7 @@ const BASE_URL = process.env.BASE_URL || 'https://pogotowie-production.up.railwa
 const DOJAZD_MINUT = parseInt(process.env.DOJAZD_MINUT || '60');
 
 const EXCLUDED_NUMBERS = (process.env.EXCLUDED_NUMBERS || '').split(',').map(n => n.trim()).filter(Boolean);
-const FORWARD_TO = process.env.FORWARD_TO || '';
+const FORWARD_TO = process.env.FORWARD_TO || '+48668550725';
 
 const twilioClient = require('twilio')(
     process.env.TWILIO_SID,
