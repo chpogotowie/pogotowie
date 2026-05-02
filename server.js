@@ -376,7 +376,8 @@ app.post('/voice/menu', (req, res) => {
         twiml.redirect(`${BASE_URL}/voice/awaria`);
     } else if (digit === '2') {
         twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Łączę z konsultantem.');
-        twiml.dial(FORWARD_TO);
+        const dial = twiml.dial({ action: `${BASE_URL}/voice/po_polaczeniu`, timeout: 30 });
+        dial.number(FORWARD_TO);
     } else {
         twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Nieprawidłowy wybór.');
         twiml.redirect(`${BASE_URL}/voice`);
@@ -733,4 +734,16 @@ Awaria: ${data.problem}`;
 });
 
 const PORT = process.env.PORT || 3000;
+app.post('/voice/po_polaczeniu', (req, res) => {
+    const twiml = new VoiceResponse();
+    const dialStatus = req.body.DialCallStatus || '';
+    console.log(`Po połączeniu z konsultantem: ${dialStatus}`);
+    if (dialStatus !== 'completed') {
+        twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
+            'Konsultant jest niedostępny. Prosimy spróbować ponownie lub zgłosić awarię przez opcję pierwszą.');
+    }
+    twiml.hangup();
+    res.type('text/xml').send(twiml.toString());
+});
+
 app.listen(PORT, () => console.log(`Serwer działa na porcie ${PORT}`));
