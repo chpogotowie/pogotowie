@@ -784,9 +784,17 @@ app.post('/voice/po_polaczeniu', (req, res) => {
     res.type('text/xml').send(twiml.toString());
 });
 
+console.log('Próba uruchomienia serwera...');
+console.log('PORT:', PORT);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+
 try {
-    app.listen(PORT, () => console.log(`Serwer działa na porcie ${PORT}`));
+    app.listen(PORT, () => {
+        console.log(`Serwer działa na porcie ${PORT}`);
+        console.log('Aplikacja uruchomiona pomyślnie!');
+    });
 } catch (error) {
     console.error('BŁĄD URUCHOMIENIA SERWERA:', error);
+    console.error('Stack trace:', error.stack);
     process.exit(1);
 }
