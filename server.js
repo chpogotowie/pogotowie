@@ -12,6 +12,7 @@ const DOJAZD_MINUT = parseInt(process.env.DOJAZD_MINUT || '60');
 
 const EXCLUDED_NUMBERS = (process.env.EXCLUDED_NUMBERS || '').split(',').map(n => n.trim()).filter(Boolean);
 const FORWARD_TO = process.env.FORWARD_TO || '';
+const CONSULTANT_PHONE = process.env.CONSULTANT_PHONE || FORWARD_TO;
 
 const twilioClient = require('twilio')(
     process.env.TWILIO_SID,
@@ -366,8 +367,17 @@ app.post('/voice/menu', (req, res) => {
         console.log(`[${callSid}] Przekierowanie na: ${BASE_URL}/voice/awaria`);
         twiml.redirect(`${BASE_URL}/voice/awaria`);
     } else if (digit === '2') {
+        console.log(`[${callSid}] Przekierowanie do konsultanta na numer: ${CONSULTANT_PHONE}`);
         twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Łączę z konsultantem.');
-        twiml.dial(FORWARD_TO);
+        
+        const dial = twiml.dial({ 
+            action: `${BASE_URL}/voice/po_polaczeniu`, 
+            timeout: 30 
+        });
+        dial.number(CONSULTANT_PHONE);
+
+        res.type('text/xml');
+        return res.send(twiml.toString()); 
     } else {
         twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Nieprawidłowy wybór.');
         twiml.redirect(`${BASE_URL}/voice`);
