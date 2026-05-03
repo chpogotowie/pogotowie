@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const express = require('express');
 const bodyParser = require('body-parser');
-const { VoiceResponse } = require('twilio/lib/twiml/VoiceResponse');
+const { VoiceResponse } = require('twilio').twiml;
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -381,12 +381,8 @@ app.post('/voice/menu', (req, res) => {
         console.log(`[${callSid}] Przekierowanie na: ${BASE_URL}/voice/awaria`);
         twiml.redirect(`${BASE_URL}/voice/awaria`);
     } else if (digit === '2') {
-        console.log(`[${callSid}] Wybrano opcję 2 - konsultant`);
-        console.log(`[${callSid}] Przekierowanie na numer: ${FORWARD_TO}`);
         twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Łączę z konsultantem.');
-        
-        // Proste przekierowanie na konsultanta
-        const dial = twiml.dial({ timeout: 30 });
+        const dial = twiml.dial({ action: `${BASE_URL}/voice/po_polaczeniu`, timeout: 30 });
         dial.number(FORWARD_TO);
 
         res.type('text/xml');
