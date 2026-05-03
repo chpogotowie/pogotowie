@@ -377,6 +377,8 @@ app.post('/voice/menu', (req, res) => {
     const twiml = new VoiceResponse();
 
     if (digit === '1') {
+        console.log(`[${callSid}] Wybrano opcję 1 - awaria`);
+        console.log(`[${callSid}] Przekierowanie na: ${BASE_URL}/voice/awaria`);
         twiml.redirect(`${BASE_URL}/voice/awaria`);
     } else if (digit === '2') {
         console.log(`[${callSid}] Przekierowanie do konsultanta na numer: ${CONSULTANT_PHONE}`);
@@ -401,6 +403,9 @@ app.post('/voice/menu', (req, res) => {
     }
 });
 app.post('/voice/awaria', (req, res) => {
+    const callSid = req.body.CallSid;
+    console.log(`[${callSid}] Otrzymano żądanie /voice/awaria`);
+    
     const twiml = new VoiceResponse();
     const gather = twiml.gather({
         input: 'speech', language: 'pl-PL',
@@ -411,6 +416,7 @@ app.post('/voice/awaria', (req, res) => {
     twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Nie usłyszałem miasta. Spróbuj ponownie.');
     twiml.redirect(`${BASE_URL}/voice/awaria`);
 
+    console.log(`[${callSid}] Wysłano TwiML dla /voice/awaria`);
     res.type('text/xml');
     res.send(twiml.toString());
 });
