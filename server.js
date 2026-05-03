@@ -381,8 +381,13 @@ app.post('/voice/menu', (req, res) => {
         console.log(`[${callSid}] Przekierowanie na: ${BASE_URL}/voice/awaria`);
         twiml.redirect(`${BASE_URL}/voice/awaria`);
     } else if (digit === '2') {
+        console.log(`[${callSid}] Przekierowanie do konsultanta na numer: ${FORWARD_TO}`);
         twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Łączę z konsultantem.');
-        const dial = twiml.dial({ action: `${BASE_URL}/voice/po_polaczeniu`, timeout: 30 });
+        
+        const dial = twiml.dial({ 
+            action: `${BASE_URL}/voice/po_polaczeniu`, 
+            timeout: 30 
+        });
         dial.number(FORWARD_TO);
 
         res.type('text/xml');
