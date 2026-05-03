@@ -418,7 +418,7 @@ app.post('/voice/awaria', (req, res) => {
 
     console.log(`[${callSid}] Wysłano TwiML dla /voice/awaria`);
     res.type('text/xml');
-    res.send(twiml.toString());
+    return res.send(twiml.toString());
 });
 
 app.post('/voice/krok2', (req, res) => {
