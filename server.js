@@ -365,7 +365,7 @@ app.post('/voice', (req, res) => {
     // Nie ma redirect - gather obsłuży akcję
 
     res.type('text/xml');
-    res.send(twiml.toString());
+    return res.send(twiml.toString());
 });
 
 app.post('/voice/menu', (req, res) => {
@@ -440,7 +440,7 @@ app.post('/voice/krok2', (req, res) => {
     twiml.redirect(`${BASE_URL}/voice/krok2`);
 
     res.type('text/xml');
-    res.send(twiml.toString());
+    return res.send(twiml.toString());
 });
 
 app.post('/voice/krok3', (req, res) => {
@@ -462,7 +462,7 @@ app.post('/voice/krok3', (req, res) => {
     twiml.redirect(`${BASE_URL}/voice/krok3`);
 
     res.type('text/xml');
-    res.send(twiml.toString());
+    return res.send(twiml.toString());
 });
 
 app.post('/voice/krok4', (req, res) => {
@@ -479,7 +479,7 @@ app.post('/voice/krok4', (req, res) => {
     twiml.redirect(`${BASE_URL}/voice/przetworz`);
 
     res.type('text/xml');
-    res.send(twiml.toString());
+    return res.send(twiml.toString());
 });
 
 app.post('/voice/przetworz', async (req, res) => {
