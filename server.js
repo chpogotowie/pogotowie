@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const express = require('express');
 const bodyParser = require('body-parser');
-const { VoiceResponse } = require('twilio').twiml;
+const { VoiceResponse } = require('twilio/lib/twiml/VoiceResponse');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
