@@ -6,3 +6,6 @@ startCommand = "npm start"
 
 [variables]
 NODE_VERSION = "20"
+
+[nixpacks]
+env = ["NPM_CONFIG_PRODUCTION=false"]
