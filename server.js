@@ -329,22 +329,24 @@ app.post('/voice', (req, res) => {
     const callSid = req.body.CallSid;
     const callerPhone = req.body.From || '';
 
-    if (EXCLUDED_NUMBERS.includes(callerPhone)) {
+ if (EXCLUDED_NUMBERS.includes(callerPhone)) {
         const twiml = new VoiceResponse();
         twiml.dial(FORWARD_TO);
         res.type('text/xml');
         res.send(twiml.toString());
         return;
     }
-    sessions.set(callSid, { callerPhone });
+    sessions.set(callSid, { callerPhone }); 
+
 
     const twiml = new VoiceResponse();
     const gather = twiml.gather({
         input: 'dtmf', numDigits: 1, timeout: 8,
         action: `${BASE_URL}/voice/menu`, method: 'POST'
     });
-    gather.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
+    gather.say({ language: 'pl-PL', voice: 'alice' },
         'Pogotowie awaryjne. Aby zgłosić awarię, naciśnij 1. Jeżeli jesteś z Służb bezpieczeństwa publicznego, naciśnij 2.');
+    twiml.say({ language: 'pl-PL', voice: 'alice' }, 'Nie odebrano odpowiedzi. Spróbuj ponownie.');
     twiml.redirect(`${BASE_URL}/voice`);
 
     res.type('text/xml');
@@ -355,10 +357,13 @@ app.post('/voice/menu', (req, res) => {
     const callSid = req.body.CallSid;
     const digit = req.body.Digits || '';
     console.log(`[${callSid}] Menu wybór: "${digit}"`);
+    console.log(`[${callSid}] Otrzymano żądanie /voice/menu`);
 
     const twiml = new VoiceResponse();
 
     if (digit === '1') {
+        console.log(`[${callSid}] Wybrano opcję 1 - awaria`);
+        console.log(`[${callSid}] Przekierowanie na: ${BASE_URL}/voice/awaria`);
         twiml.redirect(`${BASE_URL}/voice/awaria`);
     } else if (digit === '2') {
         twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Łączę z konsultantem.');
@@ -576,7 +581,8 @@ async function sendNotifications(callSid, callerPhone, parsed) {
 
     if (callerPhone) {
         if (isValid) {
-            await sendSms(callerPhone, `Dziękujemy za zgłoszenie.\nAdres: ${adres}\nFirma: ${firma}`);
+            const godz = godzinaDojazdu();
+            await sendSms(callerPhone, `Dziękujemy za zgłoszenie.\nAdres: ${adres}\nFirma: ${firma}\nPrzewidywany dojazd do godziny ${godz}.`);
         } else {
             await sendSms(callerPhone, `Przepraszamy, nie obsługujemy tego adresu:\n${adres}\n\nJeżeli podany wyżej adres jest nieprawidłowy, prosimy o ponowne skontaktowanie się.`);
         }
