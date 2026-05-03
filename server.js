@@ -784,4 +784,9 @@ app.post('/voice/po_polaczeniu', (req, res) => {
     res.type('text/xml').send(twiml.toString());
 });
 
-app.listen(PORT, () => console.log(`Serwer działa na porcie ${PORT}`));
+try {
+    app.listen(PORT, () => console.log(`Serwer działa na porcie ${PORT}`));
+} catch (error) {
+    console.error('BŁĄD URUCHOMIENIA SERWERA:', error);
+    process.exit(1);
+}
