@@ -13,6 +13,8 @@ const DOJAZD_MINUT = parseInt(process.env.DOJAZD_MINUT || '60');
 const EXCLUDED_NUMBERS = (process.env.EXCLUDED_NUMBERS || '').split(',').map(n => n.trim()).filter(Boolean);
 const FORWARD_TO = process.env.FORWARD_TO || '+48668550725';
 
+// Numer konsultanta - łatwy do zmiany w Railway
+const CONSULTANT_PHONE = process.env.CONSULTANT_PHONE || '+48668550725';
 const twilioClient = require('twilio')(
     process.env.TWILIO_SID,
     process.env.TWILIO_AUTH_TOKEN
@@ -342,6 +344,7 @@ setInterval(() => {
 app.post('/voice', (req, res) => {
     const callSid = req.body.CallSid;
     const callerPhone = req.body.From || '';
+    console.log(`[${callSid}] Otrzymano żądanie /voice`);
 
     if (EXCLUDED_NUMBERS.includes(callerPhone)) {
         const twiml = new VoiceResponse();
@@ -359,7 +362,7 @@ app.post('/voice', (req, res) => {
     });
     gather.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
         'Pogotowie awaryjne. Aby zgłosić awarię, naciśnij 1. Jeżeli jesteś z Służb bezpieczeństwa publicznego, naciśnij 2.');
-    twiml.redirect(`${BASE_URL}/voice`);
+    // Nie ma redirect - gather obsłuży akcję
 
     res.type('text/xml');
     res.send(twiml.toString());
@@ -369,25 +372,34 @@ app.post('/voice/menu', (req, res) => {
     const callSid = req.body.CallSid;
     const digit = req.body.Digits || '';
     console.log(`[${callSid}] Menu wybór: "${digit}"`);
+    console.log(`[${callSid}] Otrzymano żądanie /voice/menu`);
 
     const twiml = new VoiceResponse();
 
     if (digit === '1') {
         twiml.redirect(`${BASE_URL}/voice/awaria`);
     } else if (digit === '2') {
+        console.log(`[${callSid}] Przekierowanie do konsultanta na numer: ${CONSULTANT_PHONE}`);
+        console.log(`[${callSid}] CONSULTANT_PHONE wartość: ${CONSULTANT_PHONE}`);
+        console.log(`[${callSid}] Twilio From: ${req.body.From}`);
         twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Łączę z konsultantem.');
-        const dial = twiml.dial({ action: `${BASE_URL}/voice/po_polaczeniu`, timeout: 30 });
-        dial.number(FORWARD_TO);
-        // Nie ma redirect - kończymy po przekierowaniu
+        
+        // Warm transfer - bezpośrednie przekierowanie na numer wirtualny
+        const dial = twiml.dial({ 
+            timeout: 60,
+            callerId: req.body.From
+        });
+        dial.number(CONSULTANT_PHONE);
+
+        res.type('text/xml');
+        return res.send(twiml.toString()); 
     } else {
         twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Nieprawidłowy wybór.');
         twiml.redirect(`${BASE_URL}/voice`);
+        res.type('text/xml');
+        res.send(twiml.toString());
     }
-
-    res.type('text/xml');
-    res.send(twiml.toString());
 });
-
 app.post('/voice/awaria', (req, res) => {
     const twiml = new VoiceResponse();
     const gather = twiml.gather({
@@ -735,6 +747,25 @@ Awaria: ${data.problem}`;
 });
 
 const PORT = process.env.PORT || 3000;
+app.post('/voice/transfer_complete', (req, res) => {
+    const twiml = new VoiceResponse();
+    const dialStatus = req.body.DialCallStatus || '';
+    console.log(`Transfer do konsultanta: ${dialStatus}`);
+    console.log(`Szczegóły transferu:`, req.body);
+    
+    // Jeśli połączenie się powiodło, zakończ
+    if (dialStatus === 'completed' || dialStatus === 'answered') {
+        twiml.hangup();
+    } else {
+        // Jeśli nie, wróć do menu
+        twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
+            'Konsultant jest teraz zajęty. Proszę zadzwonić ponownie.');
+        twiml.redirect(`${BASE_URL}/voice`);
+    }
+    
+    res.type('text/xml').send(twiml.toString());
+});
+
 app.post('/voice/po_polaczeniu', (req, res) => {
     const twiml = new VoiceResponse();
     const dialStatus = req.body.DialCallStatus || '';
