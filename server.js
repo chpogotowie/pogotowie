@@ -381,17 +381,13 @@ app.post('/voice/menu', (req, res) => {
         console.log(`[${callSid}] Przekierowanie na: ${BASE_URL}/voice/awaria`);
         twiml.redirect(`${BASE_URL}/voice/awaria`);
     } else if (digit === '2') {
-        console.log(`[${callSid}] Przekierowanie do konsultanta na numer: ${CONSULTANT_PHONE}`);
-        console.log(`[${callSid}] CONSULTANT_PHONE wartość: ${CONSULTANT_PHONE}`);
-        console.log(`[${callSid}] Twilio From: ${req.body.From}`);
+        console.log(`[${callSid}] Wybrano opcję 2 - konsultant`);
+        console.log(`[${callSid}] Przekierowanie na numer: ${FORWARD_TO}`);
         twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Łączę z konsultantem.');
         
-        // Warm transfer - bezpośrednie przekierowanie na numer wirtualny
-        const dial = twiml.dial({ 
-            timeout: 60,
-            callerId: req.body.From
-        });
-        dial.number(CONSULTANT_PHONE);
+        // Proste przekierowanie na konsultanta
+        const dial = twiml.dial({ timeout: 30 });
+        dial.number(FORWARD_TO);
 
         res.type('text/xml');
         return res.send(twiml.toString()); 
