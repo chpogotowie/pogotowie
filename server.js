@@ -619,7 +619,7 @@ app.post('/voice/potwierdz', (req, res) => {
                 `Dziękujemy za zgłoszenie. Przewidywany dojazd do godziny ${godz}.`);
         } else {
             twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
-                'Niestety, podany adres nie znajduje się w obszarze naszej obsługi. Otrzymasz wiadomość SMS z informacją.');
+                'Niestety, podany adres nie znajduje się w obszarze naszej obsługi. Prosimy o ponowne skontaktowanie się.');
         }
         res.type('text/xml').send(twiml.toString());
 
