@@ -207,12 +207,13 @@ function loadAddressFile(file) {
 }
 
 const COMPANIES = [
-    { name: 'MPGL',       candidates: loadAddressFile(path.join(__dirname, 'adresy/mpgl.txt')) },
+    { name: 'ADM 1 WSPOLNOTY', candidates: loadAddressFile(path.join(__dirname, 'adresy/adm-1-wspolnoty.txt')) },
     { name: 'SDSM',       candidates: loadAddressFile(path.join(__dirname, 'adresy/sdsm.txt')) },
-    { name: 'SM BARBARA', candidates: loadAddressFile(path.join(__dirname, 'adresy/sm-barbara.txt')) }
+    { name: 'SM BARBARA', candidates: loadAddressFile(path.join(__dirname, 'adresy/sm-barbara.txt')) },
+    { name: 'PRYWATNY BUDENEK', candidates: loadAddressFile(path.join(__dirname, 'adresy/prywatny-budenek.txt')) }
 ];
 
-console.log(`Załadowano adresów: MPGL=${COMPANIES[0].candidates.length}, SDSM=${COMPANIES[1].candidates.length}, Barbara=${COMPANIES[2].candidates.length}`);
+console.log(`Załadowano adresów: ADM 1 WSPOLNOTY=${COMPANIES[0].candidates.length}, SDSM=${COMPANIES[1].candidates.length}, Barbara=${COMPANIES[2].candidates.length}, Prywatny Budenek=${COMPANIES[3].candidates.length}`);
 
 function normalizeNumber(num) {
     return (num || '').toString().toLowerCase().replace(/\s+/g, '').replace(/\.$/, '');
