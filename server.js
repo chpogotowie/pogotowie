@@ -544,6 +544,7 @@ Zasady:
 - numer mieszkania to osobna liczba PO numerze budynku, np. "139a trzynaście" → number: "139a", flat: "13" - NIE łącz w "139a13"
 - słowo "przez" oznacza separator między numerem budynku a mieszkaniem, np. "139a przez 13" → number: "139a", flat: "13"
 - słowa "brak", "brak mieszkania", "bez numeru" oznaczają brak numeru mieszkania → flat: "BRAK"
+- UWAGA KRYTYCZNA: jeśli numer budynku ma literę (np. "4a") i jest po nim slash z numerem mieszkania (np. "4a/19"), to number: "4a", flat: "19" - NIE łącz w "4a19"
 - pole "street" zawiera TYLKO nazwę ulicy BEZ słów "ul.", "ulica", "al.", "aleja", "pl.", "plac", "os.", "osiedle" - usuń je z początku nazwy ulicy
 - jeśli brak danych wpisz "BRAK"
 - zwróć tylko JSON`
@@ -686,6 +687,7 @@ Zasady:
 - numer mieszkania to osobna liczba PO numerze budynku, np. "139a 13" → number: "139a", flat: "13" - NIE łącz w "139a13"
 - słowo "przez" oznacza separator między numerem budynku a mieszkaniem, np. "139a przez 13" → number: "139a", flat: "13"
 - słowa "brak", "brak mieszkania", "bez numeru" oznaczają brak numeru mieszkania → flat: "BRAK"
+- UWAGA KRYTYCZNA: jeśli numer budynku ma literę (np. "4a") i jest po nim slash z numerem mieszkania (np. "4a/19"), to number: "4a", flat: "19" - NIE łącz w "4a19"
 - pole "street" zawiera TYLKO nazwę ulicy BEZ słów "ul.", "ulica", "al.", "aleja", "pl.", "plac", "os.", "osiedle" - usuń je z początku nazwy ulicy
 - jeśli brak danych wpisz "BRAK"
 - zwróć tylko JSON`
