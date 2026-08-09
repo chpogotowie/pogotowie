@@ -79,14 +79,23 @@
  Chorzów ul. 3 Maja 154a
  Chorzów ul. 3 Maja 158
  Ruda Śląska ul. Gajowa 47
+ Ruda Śląska ul. Gajowa 47a
  Ruda Śląska ul. Gajowa 47b
  Ruda Śląska ul. Oświęcimska 48
+ Ruda Śląska ul. Oświęcimska 48a
+ Ruda Śląska ul. Oświęcimska 48b
  Ruda Śląska ul. Oświęcimska 48c
  Ruda Śląska ul. Oświęcimska 50
+ Ruda Śląska ul. Oświęcimska 50a
+ Ruda Śląska ul. Oświęcimska 50b
  Ruda Śląska ul. Oświęcimska 50c
  Ruda Śląska ul. Radoszowska 139
  Ruda Śląska ul. Radoszowska 139d
  Ruda Śląska ul. Warsztatowa 4
+ Ruda Śląska ul. Warsztatowa 4a
+ Ruda Śląska ul. Warsztatowa 4b
+ Ruda Śląska ul. Warsztatowa 4c
+ Ruda Śląska ul. Warsztatowa 4d
  Ruda Śląska ul. Warsztatowa 4e
  Ruda Śląska ul. Warsztatowa 5
  Katowice ul. Kijowska 85
@@ -102,6 +111,15 @@
  Katowice ul. Kijowska 95j
  Katowice ul. Kijowska 95k
  Katowice ul. Kijowska 97a
+ Katowice ul. Kijowska 97b
+ Katowice ul. Kijowska 97c
+ Katowice ul. Kijowska 97d
+ Katowice ul. Kijowska 97e
+ Katowice ul. Kijowska 97f
+ Katowice ul. Kijowska 97g
+ Katowice ul. Kijowska 97h
+ Katowice ul. Kijowska 97i
+ Katowice ul. Kijowska 97j
  Katowice ul. Kijowska 97k
  Katowice ul. Krucza 80
  Katowice ul. Krucza 80a
