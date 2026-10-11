@@ -296,3 +296,45 @@
  Świętochłowice ul. Żołnierska 13
  Świętochłowice ul. Żołnierska 15
  Chorzów ul. Żołnierzy Września 75
+ Chorzów ul. Ligonia 10
+ Chorzów ul. Juliusza Ligonia 10
+ Chorzów ul. Krótka 2
+ Chorzów ul. Krótka 3
+ Świętochłowice ul. Kościelna 21
+Świętochłowice ul. Uroczysko 13J
+Świętochłowice ul. Uroczysko 13K
+Chorzów ul. Michałkowicka 91
+Chorzów ul. Michałkowicka 91A
+Chorzów ul. Michałkowicka 91B
+Chorzów ul. Michałkowicka 91C
+Chorzów ul. Michałkowicka 91D
+Katowice ul. Krucza 80
+Katowice ul. Krucza 80A
+Katowice ul. Krucza 80B
+Katowice ul. Krucza 80C
+Katowice ul. Krucza 80D
+Katowice ul. Krucza 80E
+Katowice ul. Krucza 80F
+Katowice ul. Krucza 80G
+Katowice ul. Krucza 80H
+Katowice ul. Krucza 80I
+Katowice ul. Krucza 82
+Katowice ul. Krucza 82A
+Katowice ul. Krucza 82B
+Katowice ul. Krucza 82C
+Katowice ul. Krucza 82D
+Katowice ul. Krucza 82E
+Katowice ul. Krucza 82F
+Katowice ul. Krucza 82G
+Katowice ul. Krucza 82H
+Katowice ul. Krucza 82I
+Katowice ul. Kijowska 95A
+Katowice ul. Kijowska 95B
+Katowice ul. Kijowska 95C
+Katowice ul. Kijowska 95D
+Katowice ul. Kijowska 95E
+Katowice ul. Kijowska 95F
+Katowice ul. Kijowska 95G
+Katowice ul. Kijowska 95H
+Katowice ul. Kijowska 95I
+Katowice ul. Kijowska 95K
