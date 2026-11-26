@@ -1,735 +1,270 @@
+'use strict';
 require('dotenv').config();
-
 const express = require('express');
-const bodyParser = require('body-parser');
 const { VoiceResponse } = require('twilio').twiml;
 const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
+const { loadAddresses, findCandidates, formatAddress, normalize, sameAddress } = require('./address');
+const { extractData, fallbackData } = require('./ai');
 
-const BASE_URL = process.env.BASE_URL || 'https://pogotowie-production.up.railway.app';
-const DOJAZD_MINUT = parseInt(process.env.DOJAZD_MINUT || '60');
+const LANG = { pl: { language: 'pl-PL', voice: 'Polly.Ewa' }, en: { language: 'en-US', voice: 'Polly.Joanna' } };
+const TEXT = {
+  menu: ['Pogotowie awaryjne. Aby zgłosić awarię, naciśnij 1. Jeżeli jesteś ze służb bezpieczeństwa publicznego, naciśnij 2.', 'Emergency maintenance. To report a fault, press 1. If you are calling from public safety services, press 2.'],
+  invalid: ['Nieprawidłowy wybór lub brak odpowiedzi. Spróbuj ponownie.', 'Invalid selection or no response. Please try again.'],
+  city: ['Proszę podać miasto.', 'Please say the city.'],
+  street: ['Proszę podać ulicę wraz z numerem budynku i mieszkania.', 'Please say the street, building number and apartment number.'],
+  problem: ['Proszę opisać awarię.', 'Please describe the fault.'],
+  unheard: ['Nie usłyszałem odpowiedzi. Spróbuj ponownie.', 'I did not hear an answer. Please try again.'],
+  wait: ['Dziękujemy. Chwilę proszę, sprawdzam zgłoszenie.', 'Thank you. Please wait while I check your report.'],
+  consultant: ['Łączę z konsultantem.', 'Connecting you to a consultant.'],
+  unavailable: ['Konsultant jest niedostępny. Możesz zgłosić awarię automatycznie.', 'The consultant is unavailable. You can report the fault automatically.'],
+  retry: ['Dobrze, podajmy adres jeszcze raz.', 'Let us enter the address again.'],
+  uncertain: ['Zapisaliśmy zgłoszenie z informacją, że adres wymaga weryfikacji.', 'Your report has been recorded. The address needs verification.'],
+  outside: ['Niestety, podany adres nie znajduje się w obszarze naszej obsługi.', 'Unfortunately, the address is outside our service area.'],
+};
 
-const EXCLUDED_NUMBERS = (process.env.EXCLUDED_NUMBERS || '').split(',').map(n => n.trim()).filter(Boolean);
-const FORWARD_TO = process.env.FORWARD_TO || '';
-const CONSULTANT_PHONE = process.env.CONSULTANT_PHONE || FORWARD_TO;
+function createApp({ env = process.env, http = axios, addresses = loadAddresses(), logger = console } = {}) {
+  const app = express();
+  app.use(express.urlencoded({ extended: false })); app.use(express.json());
+  const base = (env.BASE_URL || 'https://pogotowie-production.up.railway.app').replace(/\/$/, '');
+  const sessions = new Map(), pending = new Set();
+  const excluded = (env.EXCLUDED_NUMBERS || '').split(',').map(s => s.trim()).filter(Boolean);
+  const consultant = env.CONSULTANT_PHONE || env.FORWARD_TO;
+  const say = (xml, s, text) => xml.say(LANG[s.language || 'pl'], text);
+  const tr = (s, key) => TEXT[key][s.language === 'en' ? 1 : 0];
+  const redirect = (xml, route) => xml.redirect({ method: 'POST' }, `${base}${route}`);
+  const reply = (res, xml) => res.type('text/xml').send(xml.toString());
+  const gather = (xml, route, options = {}) => xml.gather({
+    input: 'dtmf', numDigits: 1, finishOnKey: '', timeout: 8, actionOnEmptyResult: true,
+    action: `${base}${route}`, method: 'POST', ...options,
+  });
+  const session = req => {
+    const sid = req.body.CallSid;
+    if (!sessions.has(sid)) sessions.set(sid, { callerPhone: req.body.From || '', language: null, languageAttempts: 0 });
+    const s = sessions.get(sid); s.updatedAt = Date.now(); return s;
+  };
+  const track = promise => {
+    pending.add(promise); promise.finally(() => pending.delete(promise)).catch(() => {}); return promise;
+  };
+  const safeLog = (service, err) => logger.error(`${service}: ${err.code || err.response?.status || 'FAILED'}`);
+  const arrival = () => new Date(Date.now() + (Number(env.DOJAZD_MINUT) || 60) * 60000)
+    .toLocaleTimeString('pl-PL', { timeZone: 'Europe/Warsaw', hour: '2-digit', minute: '2-digit', hour12: false });
 
-const twilioClient = require('twilio')(
-    process.env.TWILIO_SID,
-    process.env.TWILIO_AUTH_TOKEN
-);
-
-// ========== POWIADOMIENIA ==========
-
-async function sendTelegram(message, threadId) {
-    try {
-        const payload = { chat_id: process.env.TELEGRAM_CHAT_ID, text: message };
-        if (threadId) payload.message_thread_id = parseInt(threadId);
-        const response = await axios.post(
-            `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
-            payload
-        );
-        console.log('Telegram wysłano | ok:', response.data.ok);
-        return response.data;
-    } catch (err) {
-        console.error('Telegram błąd:', err.response?.data || err.message);
-        throw err;
+  async function telegram(text, thread) {
+    const payload = { chat_id: env.TELEGRAM_CHAT_ID, text };
+    if (thread) payload.message_thread_id = Number(thread);
+    // Telegram accepts up to 4096 characters; retain long original reports in parts.
+    const chars = Array.from(text);
+    for (let i = 0; i < chars.length; i += 4000) {
+      const result = await http.post(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+        { ...payload, text: chars.slice(i, i + 4000).join('') }, { timeout: 10000 });
+      if (!result.data?.ok) throw new Error('TELEGRAM_REJECTED');
     }
-}
-
-async function sendSms(to, message) {
-    const phone = to.replace(/^\+/, '');
-    try {
-        const response = await axios.post(
-            'https://api.smsapi.pl/sms.do',
-            new URLSearchParams({ to: phone, message, format: 'json', encoding: 'utf-8' }),
-            {
-                headers: {
-                    'Authorization': `Bearer ${process.env.SMSAPI_TOKEN}`,
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                }
-            }
-        );
-        console.log('SMSAPI wysłano do:', phone, '| status:', response.data);
-        return response.data;
-    } catch (err) {
-        console.error('SMSAPI błąd:', err.response?.data || err.message);
-        throw err;
+  }
+  async function sms(phone, text) {
+    if (!phone) return;
+    await http.post('https://api.smsapi.pl/sms.do', new URLSearchParams({
+      to: phone.replace(/^\+/, ''), message: text, format: 'json', encoding: 'utf-8',
+    }), { headers: { Authorization: `Bearer ${env.SMSAPI_TOKEN}`, 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 10000 });
+  }
+  function report(s, source) {
+    const p = s.parsed;
+    const uncertain = !p.confirmed || p.issues.length > 0 || p.companyConflict;
+    const firma = p.confirmed && !uncertain ? p.candidate?.company : null;
+    const served = uncertain ? 'NIEUSTALONE' : firma ? 'TAK' : 'NIE';
+    const data = p.confirmed && p.candidate ? { ...p.data, ...p.candidate } : p.data;
+    const adres = formatAddress(data);
+    const text = `Nowe zgłoszenie (${source}):\nFirma: ${firma || 'NIEZNANA'}\nTelefon: ${s.callerPhone}\nAdres: ${adres}\nAwaria: ${p.data.problem || 'BRAK'}\nObsługiwany: ${served}`
+      + (uncertain ? `\nNiepewność: ${[...p.issues, ...(p.companyConflict ? ['sprzeczne przypisanie firm w bazie'] : []), ...(!p.confirmed ? ['adres niepotwierdzony'] : [])].join('; ')}` : '')
+      + (source === 'SMS' ? `\nOryginalny SMS: ${p.original.text}`
+        : `\nOryginalne miasto: ${p.original.city}\nOryginalna ulica i numery: ${p.original.street}\nOryginalny opis awarii: ${p.original.problem}`);
+    return { text, firma, served, adres };
+  }
+  async function notify(s, source = 'tel') {
+    // Set synchronously: webhook retries and hang-up callbacks must not duplicate reports.
+    if (s.notified || !s.parsed) return;
+    s.notified = true;
+    const r = report(s, source);
+    const jobs = [telegram(r.text, env.TELEGRAM_THREAD_ALL)];
+    if (r.served === 'TAK' && env.TELEGRAM_THREAD_WORKERS !== env.TELEGRAM_THREAD_ALL)
+      jobs.push(telegram(r.text, env.TELEGRAM_THREAD_WORKERS));
+    const english = s.language === 'en';
+    const message = r.served === 'TAK'
+      ? (english ? `Thank you for your report.\nAddress: ${r.adres}\nCompany: ${r.firma}\nEstimated arrival by ${arrival()}.` : `Dziękujemy za zgłoszenie.\nAdres: ${r.adres}\nFirma: ${r.firma}\nPrzewidywany dojazd do godziny ${arrival()}.`)
+      : r.served === 'NIE'
+        ? (english ? `Unfortunately, we do not service this address:\n${r.adres}\nPlease contact us again if the address is incorrect.` : `Przepraszamy, nie obsługujemy tego adresu:\n${r.adres}\nJeżeli adres jest nieprawidłowy, prosimy o ponowny kontakt.`)
+        : (english ? `Your report has been recorded. The address needs verification:\n${r.adres}` : `Zgłoszenie zapisano. Adres wymaga weryfikacji:\n${r.adres}`);
+    jobs.push(sms(s.callerPhone, message));
+    const results = await Promise.allSettled(jobs);
+    results.forEach((r, i) => { if (r.status === 'rejected') safeLog(i === jobs.length - 1 ? 'SMS' : 'Telegram', r.reason); });
+    s.notificationFailed = results.some(r => r.status === 'rejected');
+  }
+  function languageMenu(xml) {
+    const g = gather(xml, '/voice/language');
+    g.say(LANG.pl, 'Aby rozmawiać po polsku, naciśnij 1.'); g.say(LANG.en, 'For English, press 2.');
+  }
+  function serviceMenu(xml, s) { say(gather(xml, '/voice/menu'), s, tr(s, 'menu')); }
+  function question(xml, s, key, action) {
+    const hints = key === 'city' ? [...new Set(addresses.map(a => a.city))]
+      : key === 'street' ? [...new Set(addresses.filter(a => normalize(a.city) === normalize(s.city)).map(a => a.street))] : [];
+    say(gather(xml, action, { input: 'speech', language: LANG[s.language || 'pl'].language, speechTimeout: 2, timeout: 10,
+      ...(hints.length ? { hints: hints.filter(h => h.length <= 100).slice(0, 500).join(',') } : {}) }), s, tr(s, key));
+  }
+  function confirmation(xml, s) {
+    const p = s.parsed, candidate = p.candidates[p.candidateIndex || 0]; p.candidate = candidate;
+    const data = candidate ? { ...p.data, ...candidate } : p.data;
+    const address = s.language === 'en'
+      ? `${data.city || 'unknown city'}, ${data.street || 'unknown street'}, building ${data.number || 'unknown'}${data.flat ? `, apartment ${data.flat}` : ''}`
+      : `${data.city || 'brak miasta'}, ulica ${data.street || 'brak ulicy'}, numer ${data.number || 'brak'}${data.flat ? `, mieszkanie ${data.flat}` : ''}`;
+    const multiple = p.candidates.length > 1;
+    const prompt = s.language === 'en'
+      ? `${multiple ? 'Several addresses match. ' : candidate?.approximate ? 'I found a similar address. ' : ''}Is the address ${address}? Press 1 to confirm, 2 for ${multiple ? 'the next address or to enter it again' : 'correction'}, or 3 to save the report with an uncertain address.`
+      : `${multiple ? 'Pasuje kilka adresów. ' : candidate?.approximate ? 'Znalazłem podobny adres. ' : ''}Czy adres to ${address}? Naciśnij 1, aby potwierdzić, 2, aby ${multiple ? 'sprawdzić kolejny adres lub podać go ponownie' : 'poprawić adres'}, lub 3, aby zapisać zgłoszenie z niepewnym adresem.`;
+    say(gather(xml, '/voice/potwierdz'), s, prompt);
+  }
+  function prepare(data, original, issues = []) {
+    return { data, original, issues: [...issues, ...(['city', 'street', 'number'].some(k => !data[k]) ? ['niepełny adres'] : []), ...(!data.problem ? ['brak opisu awarii'] : [])],
+      candidates: findCandidates(data, addresses), candidateIndex: 0, confirmed: false };
+  }
+  function finish(xml, s) {
+    const r = report(s, 'tel');
+    if (r.served === 'TAK') say(xml, s, s.language === 'en' ? `Thank you for your report. Estimated arrival by ${arrival()}.` : `Dziękujemy za zgłoszenie. Przewidywany dojazd do godziny ${arrival()}.`);
+    else say(xml, s, tr(s, r.served === 'NIE' ? 'outside' : 'uncertain'));
+    xml.hangup(); track(notify(s));
+  }
+  app.get('/health', (req, res) => res.json({ ok: true }));
+  app.use('/voice', (req, res, next) => { if (!req.body.CallSid) return res.status(400).send('CallSid required'); next(); });
+  app.post('/voice', (req, res) => {
+    const xml = new VoiceResponse();
+    if (excluded.includes(req.body.From || '')) { if (env.FORWARD_TO) xml.dial(env.FORWARD_TO); else xml.hangup(); }
+    else { const s = session(req); if (s.language) serviceMenu(xml, s); else languageMenu(xml); }
+    reply(res, xml);
+  });
+  app.post('/voice/language', (req, res) => {
+    const s = session(req), xml = new VoiceResponse();
+    if (!s.language) {
+      if (req.body.Digits === '1') s.language = 'pl';
+      else if (req.body.Digits === '2') s.language = 'en';
+      else if (++s.languageAttempts >= 2) s.language = 'pl';
     }
-}
-
-// ========== DOPASOWANIE ADRESÓW (NOWA, MOCNIEJSZA WERSJA) ==========
-
-const MULTI_WORD_CITIES = ['Ruda Śląska'];
-
-const STREET_PREFIX_RE = /^(ul\.?|ulica|al\.?|aleja|aleje|pl\.?|plac|os\.?|osiedle|skwer|rondo)$/i;
-
-const HONORIFIC_TOKENS = new Set([
-    'dr', 'doktora', 'doktor',
-    'ks', 'ksiedza', 'ksiadz',
-    'sw', 'swietego', 'swietej', 'sw.',
-    'gen', 'generala', 'general',
-    'prof', 'profesora', 'profesor',
-    'im', 'imienia',
-    'kard', 'kardynala', 'kardynal',
-    'bp', 'biskupa', 'biskup',
-    'pralata', 'pralat',
-    'mjr', 'majora',
-    'plk', 'pulkownika',
-    'kpt', 'kapitana',
-    'por', 'porucznika',
-    'inz', 'inzyniera'
-]);
-
-function stripDiacritics(s) {
-    return (s || '')
-        .toLowerCase()
-        .replace(/ł/g, 'l')
-        .replace(/Ł/g, 'l')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '');
-}
-
-// Polski "stemmer" - obcinamy typowe końcówki przypadków/liczby mnogiej.
-// Zostawiamy minimum 4 znaki rdzenia, żeby nie pomylić różnych słów.
-function polishStem(word) {
-    let w = stripDiacritics(word).replace(/[^a-z0-9]/g, '');
-    if (!w) return '';
-    // Cyfry: nie ruszamy
-    if (/\d/.test(w)) return w;
-    // Lista końcówek (od najdłuższych do najkrótszych)
-    const endings = [
-        'iego', 'iemu', 'iego', 'iej', 'imi', 'ymi',
-        'ego', 'emu', 'ach', 'ami', 'om',
-        'ym', 'im', 'ej', 'ie',
-        'a', 'e', 'i', 'y', 'u', 'o'
-    ];
-    for (const e of endings) {
-        if (w.endsWith(e) && w.length - e.length >= 4) {
-            return w.slice(0, -e.length);
-        }
+    if (s.language) serviceMenu(xml, s); else languageMenu(xml);
+    reply(res, xml);
+  });
+  app.post('/voice/menu', (req, res) => {
+    const s = session(req), xml = new VoiceResponse();
+    if (req.body.Digits === '1') redirect(xml, '/voice/awaria');
+    else if (req.body.Digits === '2' && consultant) {
+      say(xml, s, tr(s, 'consultant'));
+      xml.dial({ action: `${base}/voice/po_polaczeniu`, method: 'POST', timeout: 30 }).number(consultant);
+    } else { say(xml, s, tr(s, 'invalid')); serviceMenu(xml, s); }
+    reply(res, xml);
+  });
+  app.post('/voice/po_polaczeniu', (req, res) => {
+    const s = session(req), xml = new VoiceResponse();
+    if (req.body.DialCallStatus === 'completed') xml.hangup();
+    else { say(xml, s, tr(s, 'unavailable')); redirect(xml, '/voice/awaria'); }
+    reply(res, xml);
+  });
+  app.post('/voice/awaria', (req, res) => {
+    const s = session(req), xml = new VoiceResponse(); question(xml, s, 'city', '/voice/krok2'); reply(res, xml);
+  });
+  // Empty speech repeats the same question without overwriting previous fields.
+  for (const [route, field, current, next, action] of [
+    ['/voice/krok2', 'city', 'city', 'street', '/voice/krok3'],
+    ['/voice/krok3', 'street', 'street', 'problem', '/voice/krok4'],
+    ['/voice/krok4', 'problem', 'problem', null, null],
+  ]) app.post(route, (req, res) => {
+    const s = session(req), xml = new VoiceResponse(), value = (req.body.SpeechResult || '').trim();
+    if (!value) { say(xml, s, tr(s, 'unheard')); question(xml, s, current, route); }
+    else { s[field] = value; if (next) question(xml, s, next, action); else { say(xml, s, tr(s, 'wait')); redirect(xml, '/voice/przetworz'); } }
+    reply(res, xml);
+  });
+  app.post('/voice/przetworz', async (req, res) => {
+    const s = session(req), xml = new VoiceResponse();
+    if (s.notified) { xml.hangup(); return reply(res, xml); }
+    if (!s.parsed) {
+      const original = { source: 'phone', language: s.language || 'pl', city: s.city || '', street: s.street || '', problem: s.problem || '' };
+      // Share the in-flight request if Twilio retries while AI is processing.
+      s.processing ||= (async () => {
+        try { s.parsed = prepare(await extractData(http, env, original), original); }
+        catch (err) { safeLog('AI', err); s.parsed = prepare(fallbackData(original), original, ['błąd odczytu lub tłumaczenia AI']); }
+      })();
+      await s.processing;
     }
-    return w;
-}
-
-function fuzzyTokenEqual(a, b) {
-    if (!a || !b) return false;
-    const sa = polishStem(a);
-    const sb = polishStem(b);
-    if (!sa || !sb) return false;
-    if (sa === sb) return true;
-    // Liczby muszą być identyczne
-    if (/\d/.test(sa) || /\d/.test(sb)) return sa === sb;
-    // Tolerancja prefiksu (na wypadek różnic typu "swiet" vs "swietoch")
-    const minLen = Math.min(sa.length, sb.length);
-    if (minLen < 4) return false;
-    return sa.startsWith(sb) || sb.startsWith(sa);
-}
-
-function tokenizeSimple(text) {
-    return (text || '')
-        .replace(/[.,/\\-]/g, ' ')
-        .split(/\s+/)
-        .map(t => t.trim())
-        .filter(Boolean);
-}
-
-// Parsowanie pojedynczej linii pliku adresów na strukturę {city, street, number}
-function parseCandidateLine(line) {
-    const raw = line.trim();
-    if (!raw) return null;
-
-    let cityRaw = null;
-    let rest = raw;
-
-    // Najpierw sprawdzamy miasta dwuwyrazowe (np. "Ruda Śląska")
-    for (const c of MULTI_WORD_CITIES) {
-        if (rest.toLowerCase().startsWith(c.toLowerCase() + ' ')) {
-            cityRaw = c;
-            rest = rest.slice(c.length).trim();
-            break;
-        }
+    if (s.ended) { track(notify(s)); xml.hangup(); } else confirmation(xml, s);
+    reply(res, xml);
+  });
+  app.post('/voice/potwierdz', (req, res) => {
+    const s = session(req), xml = new VoiceResponse(), p = s.parsed;
+    if (s.notified) xml.hangup();
+    else if (!p) redirect(xml, '/voice/awaria');
+    else if (req.body.Digits === '1') {
+      p.confirmed = true;
+      // Contradictory company ownership cannot be settled by an address keypress.
+      if (p.candidate) p.companyConflict = p.candidates.some(a => a.company !== p.candidate.company
+        && sameAddress(a, p.candidate));
+      finish(xml, s);
+    } else if (req.body.Digits === '2') {
+      p.confirmationAttempts = 0;
+      if (p.candidateIndex + 1 < p.candidates.length) { p.candidateIndex++; confirmation(xml, s); }
+      else if ((s.addressRetries || 0) < 1) {
+        s.addressRetries = (s.addressRetries || 0) + 1;
+        // Retain rejected data until replacement input has been processed.
+        s.previousParsed = p; delete s.parsed; delete s.processing;
+        say(xml, s, tr(s, 'retry')); redirect(xml, '/voice/awaria');
+      } else { p.issues.push('nie udało się potwierdzić adresu po ponownym podaniu'); finish(xml, s); }
+    } else if (req.body.Digits === '3' || (p.confirmationAttempts = (p.confirmationAttempts || 0) + 1) >= 2) finish(xml, s);
+    else { say(xml, s, tr(s, 'invalid')); confirmation(xml, s); }
+    reply(res, xml);
+  });
+  app.post('/voice/status', (req, res) => {
+    const s = sessions.get(req.body.CallSid);
+    if (s && ['completed', 'canceled', 'failed', 'busy', 'no-answer'].includes(req.body.CallStatus)) {
+      s.ended = true;
+      if (!s.parsed && s.previousParsed && !s.processing) s.parsed = s.previousParsed;
+      if (!s.parsed && !s.processing && (s.city || s.street || s.problem)) {
+        const original = { source: 'phone', language: s.language || 'pl', city: s.city || '', street: s.street || '', problem: s.problem || '' };
+        s.parsed = prepare(fallbackData(original), original, ['rozmowa przerwana przed odczytem i potwierdzeniem danych']);
+      }
+      if (s.parsed && !s.notified) track(notify(s));
     }
-
-    if (!cityRaw) {
-        // Pierwszy token to miasto
-        const firstSpace = rest.indexOf(' ');
-        if (firstSpace === -1) return null;
-        cityRaw = rest.slice(0, firstSpace);
-        rest = rest.slice(firstSpace + 1).trim();
-    }
-
-    const tokens = tokenizeSimple(rest);
-    if (tokens.length < 2) return null;
-
-    // Ostatni token = numer budynku
-    const numberRaw = tokens[tokens.length - 1].toLowerCase();
-    let middle = tokens.slice(0, -1);
-
-    // Usuń przedrostki typu "ul.", "al." z początku
-    while (middle.length && STREET_PREFIX_RE.test(middle[0])) {
-        middle = middle.slice(1);
-    }
-
-    if (middle.length === 0) return null;
-
-    const streetRaw = middle.join(' ');
-
-    return {
-        raw,
-        city: cityRaw,
-        cityStem: polishStem(cityRaw),
-        cityStemTokens: tokenizeSimple(cityRaw).map(polishStem),
-        street: streetRaw,
-        streetStems: middle.map(polishStem).filter(Boolean),
-        // Również wersja bez honoryfików/tytułów (dr, ks, sw, gen...)
-        streetCoreStems: middle
-            .filter(t => !HONORIFIC_TOKENS.has(stripDiacritics(t).replace(/\./g, '')))
-            .map(polishStem)
-            .filter(Boolean),
-        number: numberRaw
-    };
+    res.sendStatus(204);
+  });
+  app.post('/sms', (req, res) => {
+    res.type('text/xml').send('<Response></Response>');
+    track((async () => {
+      const original = { source: 'sms', text: req.body.Body || '' };
+      const s = { callerPhone: req.body.From || '', language: 'pl' };
+      try {
+        s.parsed = prepare(await extractData(http, env, original), original);
+        // SMS has no confirmation step. Only a unique literal match is trusted.
+        const p = s.parsed;
+        const literal = normalize(original.text);
+        if (!literal.includes(normalize(p.data.city)) || !literal.includes(normalize(p.data.street)))
+          p.issues.push('nazwy adresu odczytane przez AI nie występują dosłownie w SMS');
+        if (p.data.number && !new RegExp(`(^|[^0-9a-z])${p.data.number}($|[^0-9a-z])`, 'i').test(literal))
+          p.issues.push('numer budynku z SMS wymaga weryfikacji');
+        if (p.candidates.length === 1 && !p.candidates[0].approximate && p.issues.length === 0) { p.candidate = p.candidates[0]; p.confirmed = true; }
+        else if (!p.candidates.length && p.issues.length === 0) p.confirmed = true;
+      } catch (err) {
+        safeLog('AI SMS', err);
+        s.parsed = prepare({ city: '', street: '', number: '', flat: '', problem: 'Nie udało się odczytać SMS; patrz oryginał.' }, original, ['błąd odczytu AI']);
+      }
+      await notify(s, 'SMS');
+    })().catch(err => safeLog('SMS handler', err)));
+  });
+  app.locals.sessions = sessions;
+  app.locals.pruneSessions = () => {
+    for (const [sid, s] of sessions) if (s.updatedAt < Date.now() - 24 * 3600000) sessions.delete(sid);
+  };
+  app.locals.waitForIdle = async () => { while (pending.size) await Promise.allSettled([...pending]); };
+  return app;
 }
-
-function loadAddressFile(file) {
-    try {
-        const lines = fs.readFileSync(file, 'utf-8').split('\n');
-        const parsed = [];
-        for (const line of lines) {
-            const p = parseCandidateLine(line);
-            if (p) parsed.push(p);
-        }
-        return parsed;
-    } catch (e) {
-        console.error(`Błąd wczytywania pliku ${file}:`, e.message);
-        return [];
-    }
+if (require.main === module) {
+  if (process.argv[2] === 'test') console.log(JSON.stringify(findCandidates({ city: process.argv[3], street: process.argv[4], number: process.argv[5] }, loadAddresses()), null, 2));
+  else {
+    const app = createApp();
+    setInterval(app.locals.pruneSessions, 3600000).unref();
+    app.listen(process.env.PORT || 3000, () => console.log('Serwer uruchomiony'));
+  }
 }
-
-const COMPANIES = [
-    { name: 'ADM 1 WSPOLNOTY', candidates: loadAddressFile(path.join(__dirname, 'adresy/adm-1-wspolnoty.txt')) },
-    { name: 'SDSM',       candidates: loadAddressFile(path.join(__dirname, 'adresy/sdsm.txt')) },
-    { name: 'SM BARBARA', candidates: loadAddressFile(path.join(__dirname, 'adresy/sm-barbara.txt')) },
-    { name: 'PRYWATNY BUDENEK', candidates: loadAddressFile(path.join(__dirname, 'adresy/prywatny-budenek.txt')) }
-];
-
-console.log(`Załadowano adresów: ADM 1 WSPOLNOTY=${COMPANIES[0].candidates.length}, SDSM=${COMPANIES[1].candidates.length}, Barbara=${COMPANIES[2].candidates.length}, Prywatny Budenek=${COMPANIES[3].candidates.length}`);
-
-function normalizeNumber(num) {
-    return (num || '').toString().toLowerCase().replace(/\s+/g, '').replace(/\.$/, '');
-}
-
-function cityMatches(inputCity, candidate) {
-    if (!inputCity) return false;
-    const inputTokens = tokenizeSimple(inputCity).map(polishStem).filter(Boolean);
-    if (inputTokens.length === 0) return false;
-
-    // Każdy token miasta z wejścia musi mieć dopasowanie w mieście kandydata
-    for (const t of inputTokens) {
-        const ok = candidate.cityStemTokens.some(c => fuzzyTokenEqual(t, c));
-        if (!ok) return false;
-    }
-    return true;
-}
-
-function streetMatches(inputStreet, candidate) {
-    if (!inputStreet) return false;
-    // Usuń przedrostki "ul.", "al.", itp.
-    const cleaned = inputStreet
-        .replace(/^(ul\.?|ulica|al\.?|aleja|aleje|pl\.?|plac|os\.?|osiedle)\s+/i, '')
-        .trim();
-
-    const inputTokens = tokenizeSimple(cleaned);
-    if (inputTokens.length === 0) return false;
-
-    const inputStems = inputTokens
-        .filter(t => !HONORIFIC_TOKENS.has(stripDiacritics(t).replace(/\./g, '')))
-        .map(polishStem)
-        .filter(Boolean);
-
-    if (inputStems.length === 0) return false;
-
-    // Wszystkie istotne tokeny ulicy z wejścia muszą się znaleźć w kandydacie
-    // (porównujemy z pełną listą rdzeni kandydata, nie tylko core, żeby honoryfiki też pasowały gdy są w wejściu)
-    for (const t of inputStems) {
-        const ok = candidate.streetStems.some(c => fuzzyTokenEqual(t, c));
-        if (!ok) return false;
-    }
-    return true;
-}
-
-function numberMatches(inputNumber, candidate) {
-    const a = normalizeNumber(inputNumber);
-    const b = normalizeNumber(candidate.number);
-    if (!a || !b) return false;
-    return a === b;
-}
-
-function findFirma(city, street, number) {
-    const inputNumberNorm = normalizeNumber(number);
-    console.log(`SZUKAM: miasto="${city}" ulica="${street}" numer="${inputNumberNorm}"`);
-
-    for (const { name, candidates } of COMPANIES) {
-        const match = candidates.find(c =>
-            numberMatches(number, c) &&
-            cityMatches(city, c) &&
-            streetMatches(street, c)
-        );
-        if (match) {
-            console.log(`DOPASOWANIE ${name}: "${match.raw}"`);
-            return name;
-        }
-    }
-    console.log('BRAK DOPASOWANIA dla:', { city, street, number });
-    return null;
-}
-
-function normalizujUlice(street) {
-    const s = (street || '').toLowerCase();
-    if (s.includes('mari') && (
-        s.includes('dulc') ||
-        s.includes('duz') ||
-        s.includes('dulsi') ||
-        s.includes('holc') ||
-        s.includes('hofm') ||
-        s.includes('hoffm') ||
-        s.includes('man')
-    )) {
-        return 'Marii Dulcissimy Hoffmann';
-    }
-    return street;
-}
-
-function godzinaDojazdu() {
-    const teraz = new Date();
-    teraz.setMinutes(teraz.getMinutes() + DOJAZD_MINUT);
-    return teraz.toLocaleTimeString('pl-PL', {
-        timeZone: 'Europe/Warsaw',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-    });
-}
-
-// ========== TRYB TESTOWY Z LINII POLECEŃ ==========
-// Użycie: node server.js test "Świętochłowice" "Witolda Pileckiego" "20"
-if (process.argv[2] === 'test') {
-    const result = findFirma(process.argv[3] || '', process.argv[4] || '', process.argv[5] || '');
-    console.log('WYNIK:', result || 'BRAK');
-    process.exit(0);
-}
-
-// ========== APLIKACJA EXPRESS ==========
-
-const app = express();
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
-
-const sessions = new Map();
-
-app.post('/voice', (req, res) => {
-    const callSid = req.body.CallSid;
-    const callerPhone = req.body.From || '';
-
- if (EXCLUDED_NUMBERS.includes(callerPhone)) {
-        const twiml = new VoiceResponse();
-        twiml.dial(FORWARD_TO);
-        res.type('text/xml');
-        res.send(twiml.toString());
-        return;
-    }
-    sessions.set(callSid, { callerPhone }); 
-
-
-    const twiml = new VoiceResponse();
-    const gather = twiml.gather({
-        input: 'dtmf', numDigits: 1, timeout: 8,
-        action: `${BASE_URL}/voice/menu`, method: 'POST'
-    });
-    gather.say({ language: 'pl-PL', voice: 'alice' },
-        'Pogotowie awaryjne. Aby zgłosić awarię, naciśnij 1. Jeżeli jesteś z Służb bezpieczeństwa publicznego, naciśnij 2.');
-    twiml.say({ language: 'pl-PL', voice: 'alice' }, 'Nie odebrano odpowiedzi. Spróbuj ponownie.');
-    twiml.redirect(`${BASE_URL}/voice`);
-
-    res.type('text/xml');
-    res.send(twiml.toString());
-});
-
-app.post('/voice/menu', (req, res) => {
-    const callSid = req.body.CallSid;
-    const digit = req.body.Digits || '';
-    console.log(`[${callSid}] Menu wybór: "${digit}"`);
-    console.log(`[${callSid}] Otrzymano żądanie /voice/menu`);
-
-    const twiml = new VoiceResponse();
-
-    if (digit === '1') {
-        console.log(`[${callSid}] Wybrano opcję 1 - awaria`);
-        console.log(`[${callSid}] Przekierowanie na: ${BASE_URL}/voice/awaria`);
-        twiml.redirect(`${BASE_URL}/voice/awaria`);
-    } else if (digit === '2') {
-        console.log(`[${callSid}] Przekierowanie do konsultanta na numer: ${CONSULTANT_PHONE}`);
-        twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Łączę z konsultantem.');
-        
-        const dial = twiml.dial({ 
-            action: `${BASE_URL}/voice/po_polaczeniu`, 
-            timeout: 30 
-        });
-        dial.number(CONSULTANT_PHONE);
-
-        res.type('text/xml');
-        return res.send(twiml.toString()); 
-    } else {
-        twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Nieprawidłowy wybór.');
-        twiml.redirect(`${BASE_URL}/voice`);
-    }
-
-    res.type('text/xml');
-    res.send(twiml.toString());
-});
-
-app.post('/voice/awaria', (req, res) => {
-    const twiml = new VoiceResponse();
-    const gather = twiml.gather({
-        input: 'speech', language: 'pl-PL',
-        speechTimeout: 'auto', timeout: 10,
-        action: `${BASE_URL}/voice/krok2`, method: 'POST'
-    });
-    gather.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Proszę podać miasto:');
-    twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Nie usłyszałem miasta. Spróbuj ponownie.');
-    twiml.redirect(`${BASE_URL}/voice/awaria`);
-
-    res.type('text/xml');
-    res.send(twiml.toString());
-});
-
-app.post('/voice/krok2', (req, res) => {
-    const callSid = req.body.CallSid;
-    const city = req.body.SpeechResult || '';
-    const session = sessions.get(callSid) || {};
-    session.city = city;
-    sessions.set(callSid, session);
-    console.log(`[${callSid}] Miasto: "${city}"`);
-
-    const twiml = new VoiceResponse();
-    const gather = twiml.gather({
-        input: 'speech', language: 'pl-PL',
-        speechTimeout: 'auto', timeout: 10,
-        action: `${BASE_URL}/voice/krok3`, method: 'POST'
-    });
-    gather.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Proszę podać ulicę wraz z numerem domu i mieszkania:');
-    twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Nie usłyszałem ulicy. Spróbuj ponownie.');
-    twiml.redirect(`${BASE_URL}/voice/krok2`);
-
-    res.type('text/xml');
-    res.send(twiml.toString());
-});
-
-app.post('/voice/krok3', (req, res) => {
-    const callSid = req.body.CallSid;
-    const street = req.body.SpeechResult || '';
-    const session = sessions.get(callSid) || {};
-    session.street = street;
-    sessions.set(callSid, session);
-    console.log(`[${callSid}] Ulica: "${street}"`);
-
-    const twiml = new VoiceResponse();
-    const gather = twiml.gather({
-        input: 'speech', language: 'pl-PL',
-        speechTimeout: 'auto', timeout: 15,
-        action: `${BASE_URL}/voice/krok4`, method: 'POST'
-    });
-    gather.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Proszę opisać awarię:');
-    twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Nie usłyszałem opisu. Spróbuj ponownie.');
-    twiml.redirect(`${BASE_URL}/voice/krok3`);
-
-    res.type('text/xml');
-    res.send(twiml.toString());
-});
-
-app.post('/voice/krok4', (req, res) => {
-    const callSid = req.body.CallSid;
-    const problem = req.body.SpeechResult || '';
-    const session = sessions.get(callSid) || {};
-    session.problem = problem;
-    sessions.set(callSid, session);
-    console.log(`[${callSid}] Awaria: "${problem}"`);
-
-    const twiml = new VoiceResponse();
-    twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
-        'Dziękujemy. Chwilę proszę, sprawdzam zgłoszenie.');
-    twiml.redirect(`${BASE_URL}/voice/przetworz`);
-
-    res.type('text/xml');
-    res.send(twiml.toString());
-});
-
-app.post('/voice/przetworz', async (req, res) => {
-    const callSid = req.body.CallSid;
-    const session = sessions.get(callSid) || {};
-    const twiml = new VoiceResponse();
-
-    try {
-        const parsed = await parseAddressData(
-            callSid,
-            session.city || '',
-            session.street || '',
-            session.problem || ''
-        );
-
-        if (!parsed) {
-            twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
-                'Nie udało się rozpoznać adresu. Spróbujmy jeszcze raz.');
-            twiml.redirect(`${BASE_URL}/voice`);
-            res.type('text/xml').send(twiml.toString());
-            return;
-        }
-
-        session.parsed = parsed;
-        sessions.set(callSid, session);
-
-        const flatTekst = parsed.data.flat && parsed.data.flat !== 'BRAK'
-            ? `, mieszkanie ${parsed.data.flat}`
-            : '';
-        const streetCleaned = parsed.data.street.replace(/^(ul\.|ulica|al\.|aleja|aleje|pl\.|plac|os\.|osiedle)\s+/i, '').trim();
-        const adresGlos = `${parsed.data.city}, ulica ${streetCleaned}, numer ${parsed.data.number}${flatTekst}`;
-
-        const gather = twiml.gather({
-            input: 'dtmf',
-            numDigits: 1,
-            timeout: 10,
-            action: `${BASE_URL}/voice/potwierdz`,
-            method: 'POST'
-        });
-        gather.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
-            `Czy zgłoszenie dotyczy adresu: ${adresGlos}? Aby potwierdzić, naciśnij 1. Aby podać dane ponownie, naciśnij 2.`);
-        twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' }, 'Nie odebraliśmy odpowiedzi. Spróbujmy jeszcze raz.');
-        twiml.redirect(`${BASE_URL}/voice`);
-
-        res.type('text/xml').send(twiml.toString());
-    } catch (err) {
-        console.error(`[${callSid}] Błąd /voice/przetworz:`, err.message);
-        twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
-            'Wystąpił błąd. Prosimy zadzwonić ponownie.');
-        res.type('text/xml').send(twiml.toString());
-    }
-});
-
-async function parseAddressData(callSid, city, street, problem) {
-    const gptResponse = await axios.post(
-        'https://api.openai.com/v1/chat/completions',
-        {
-            model: 'gpt-4o-mini',
-            messages: [
-                {
-                    role: 'system',
-                    content: `Wyciągnij dane adresowe z tekstu i zwróć JSON bez komentarzy:
-{
-  "city": "",
-  "street": "",
-  "number": "",
-  "flat": "",
-  "problem": ""
-}
-Zasady:
-- popraw błędy wymowy i zapisu (np. "swietochlowice" → "Świętochłowice", "halupki" → "Chałupki", "gołembia" → "Gołębia")
-- ZAWSZE zapisuj nazwę ulicy w MIANOWNIKU (forma podstawowa, jak na tabliczce z nazwą ulicy): np. "na Chałupkach" → "Chałupki", "z Gołębiej" → "Gołębia", "do Marii Dulcissimy Hoffmann" → "Marii Dulcissimy Hoffmann"
-- ZAWSZE zapisuj nazwę miasta w MIANOWNIKU: np. "w Świętochłowicach" → "Świętochłowice", "w Chorzowie" → "Chorzów"
-- ZAWSZE używaj polskich znaków diakrytycznych (ą, ć, ę, ł, ń, ó, ś, ź, ż) tam gdzie powinny być
-- UWAGA: nazwy ulic w Polsce często zaczynają się od liczby np. "11 Listopada", "1 Maja", "3 Maja", "29 Stycznia" - cała nazwa to ulica, nie mylić z numerem budynku
-- numer budynku to liczba podana PO nazwie ulicy, np. "11 Listopada 64" → street: "11 Listopada", number: "64"
-- flat to numer mieszkania jeśli podano po "/", np. "64/5" → number: "64", flat: "5"
-- liczby wymawiane np. "sześćdziesiąt cztery" → "64"
-- numer budynku może zawierać jedną literę bezpośrednio po cyfrach np. "139a", "95k"
-- numer mieszkania to osobna liczba PO numerze budynku, np. "139a trzynaście" → number: "139a", flat: "13" - NIE łącz w "139a13"
-- słowo "przez" oznacza separator między numerem budynku a mieszkaniem, np. "139a przez 13" → number: "139a", flat: "13"
-- słowa "brak", "brak mieszkania", "bez numeru" oznaczają brak numeru mieszkania → flat: "BRAK"
-- UWAGA KRYTYCZNA: jeśli numer budynku ma literę (np. "4a") i jest po nim slash z numerem mieszkania (np. "4a/19"), to number: "4a", flat: "19" - NIE łącz w "4a19"
-- pole "street" zawiera TYLKO nazwę ulicy BEZ słów "ul.", "ulica", "al.", "aleja", "pl.", "plac", "os.", "osiedle" - usuń je z początku nazwy ulicy
-- jeśli brak danych wpisz "BRAK"
-- zwróć tylko JSON`
-                },
-                {
-                    role: 'user',
-                    content: `Miasto: ${city}\nUlica i numer: ${street}\nAwaria: ${problem}`
-                }
-            ]
-        },
-        { headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` } }
-    );
-
-    let raw = gptResponse.data.choices[0].message.content
-        .replace(/```json/g, '').replace(/```/g, '').trim();
-    const data = JSON.parse(raw);
-    console.log(`[${callSid}] Dane z GPT:`, data);
-
-    if (data.number && typeof data.number === 'string') {
-        data.number = data.number.toLowerCase().replace(/\s+/g, '');
-    }
-    if (data.flat && typeof data.flat === 'string') {
-        data.flat = data.flat.toLowerCase().replace(/\s+/g, '');
-    }
-
-    const isBadData =
-        !data.city || data.city === 'BRAK' ||
-        !data.street || data.street === 'BRAK' ||
-        !data.number || data.number === 'BRAK' ||
-        !data.problem || data.problem === 'BRAK';
-
-    if (isBadData) return null;
-
-    data.street = normalizujUlice(data.street);
-    const firma = findFirma(data.city, data.street, data.number);
-    const isValid = !!firma;
-    const flatInfo = data.flat && data.flat !== 'BRAK' ? `/${data.flat}` : '';
-    const streetCleaned = data.street.replace(/^(ul\.|ulica|al\.|aleja|aleje|pl\.|plac|os\.|osiedle)\s+/i, '').trim();
-    const adres = `${data.city}, ul. ${streetCleaned} ${data.number}${flatInfo}`;
-
-    console.log(`[${callSid}] Firma: ${firma}, Obsługiwany: ${isValid}`);
-    return { data, firma, isValid, adres };
-}
-
-async function sendNotifications(callSid, callerPhone, parsed) {
-    const { data, firma, isValid, adres } = parsed;
-
-    if (callerPhone) {
-        if (isValid) {
-            const godz = godzinaDojazdu();
-            await sendSms(callerPhone, `Dziękujemy za zgłoszenie.\nAdres: ${adres}\nFirma: ${firma}\nPrzewidywany dojazd do godziny ${godz}.`);
-        } else {
-            await sendSms(callerPhone, `Przepraszamy, nie obsługujemy tego adresu:\n${adres}\n\nJeżeli podany wyżej adres jest nieprawidłowy, prosimy o ponowne skontaktowanie się.`);
-        }
-    }
-
-    const msgTel = `Nowe zgłoszenie (tel):
-Firma: ${firma || 'NIEZNANA'}
-Telefon: ${callerPhone}
-Adres: ${adres}
-Awaria: ${data.problem}`;
-    if (isValid) {
-        await sendTelegram(msgTel, process.env.TELEGRAM_THREAD_WORKERS);
-    }
-    await sendTelegram(msgTel + `\nObsługiwany: ${isValid ? 'TAK' : 'NIE'}`, process.env.TELEGRAM_THREAD_ALL);
-
-    console.log(`[${callSid}] Telegram wysłany`);
-}
-
-app.post('/voice/potwierdz', (req, res) => {
-    const callSid = req.body.CallSid;
-    const digit = (req.body.Digits || '').trim();
-    const session = sessions.get(callSid) || {};
-    const twiml = new VoiceResponse();
-
-    console.log(`[${callSid}] Potwierdzenie: digit="${digit}"`);
-
-    if (digit === '1' && session.parsed) {
-        const parsed = session.parsed;
-        const callerPhone = session.callerPhone || '';
-
-        if (parsed.isValid) {
-            const godz = godzinaDojazdu();
-            twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
-                `Dziękujemy za zgłoszenie. Przewidywany dojazd do godziny ${godz}.`);
-        } else {
-            twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
-                'Niestety, podany adres nie znajduje się w obszarze naszej obsługi. Prosimy o ponowne skontaktowanie się.');
-        }
-        res.type('text/xml').send(twiml.toString());
-
-        sendNotifications(callSid, callerPhone, parsed)
-            .catch(err => console.error(`[${callSid}] Błąd notifications:`, err.message));
-        sessions.delete(callSid);
-    } else if (digit === '2') {
-        sessions.delete(callSid);
-        twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
-            'Dobrze, podajmy dane jeszcze raz.');
-        twiml.redirect(`${BASE_URL}/voice/awaria`);
-        res.type('text/xml').send(twiml.toString());
-    } else {
-        twiml.say({ language: 'pl-PL', voice: 'Polly.Ola-Neural' },
-            'Nie odebraliśmy odpowiedzi. Spróbujmy jeszcze raz.');
-        twiml.redirect(`${BASE_URL}/voice`);
-        res.type('text/xml').send(twiml.toString());
-    }
-});
-
-app.post('/sms', async (req, res) => {
-    const incomingMsg = req.body.Body || '';
-    const phone = req.body.From || '';
-    console.log('SMS OD KLIENTA:', incomingMsg);
-    res.send('<Response></Response>');
-
-    try {
-        const gptResponse = await axios.post(
-            'https://api.openai.com/v1/chat/completions',
-            {
-                model: 'gpt-4o-mini',
-                messages: [
-                    {
-                        role: 'system',
-                        content: `Wyciągnij dane z tekstu i zwróć JSON bez komentarzy:
-{
-  "city": "",
-  "street": "",
-  "number": "",
-  "flat": "",
-  "problem": ""
-}
-Zasady:
-- popraw błędy zapisu (np. "swietochlowice" → "Świętochłowice", "halupki" → "Chałupki", "gołembia" → "Gołębia")
-- ZAWSZE zapisuj nazwę ulicy w MIANOWNIKU (forma podstawowa, jak na tabliczce): np. "na Chałupkach" → "Chałupki", "z Gołębiej" → "Gołębia"
-- ZAWSZE zapisuj nazwę miasta w MIANOWNIKU: np. "w Świętochłowicach" → "Świętochłowice", "w Chorzowie" → "Chorzów"
-- ZAWSZE używaj polskich znaków diakrytycznych (ą, ć, ę, ł, ń, ó, ś, ź, ż) tam gdzie powinny być
-- UWAGA: nazwy ulic w Polsce często zaczynają się od liczby np. "11 Listopada", "1 Maja", "3 Maja" - cała nazwa to ulica, nie mylić z numerem budynku
-- numer budynku to liczba podana PO nazwie ulicy, np. "11 Listopada 64" → street: "11 Listopada", number: "64"
-- flat to numer mieszkania jeśli podano po "/", np. "64/5" → number: "64", flat: "5"
-- numer budynku może zawierać jedną literę bezpośrednio po cyfrach np. "139a", "95k"
-- numer mieszkania to osobna liczba PO numerze budynku, np. "139a 13" → number: "139a", flat: "13" - NIE łącz w "139a13"
-- słowo "przez" oznacza separator między numerem budynku a mieszkaniem, np. "139a przez 13" → number: "139a", flat: "13"
-- słowa "brak", "brak mieszkania", "bez numeru" oznaczają brak numeru mieszkania → flat: "BRAK"
-- UWAGA KRYTYCZNA: jeśli numer budynku ma literę (np. "4a") i jest po nim slash z numerem mieszkania (np. "4a/19"), to number: "4a", flat: "19" - NIE łącz w "4a19"
-- pole "street" zawiera TYLKO nazwę ulicy BEZ słów "ul.", "ulica", "al.", "aleja", "pl.", "plac", "os.", "osiedle" - usuń je z początku nazwy ulicy
-- jeśli brak danych wpisz "BRAK"
-- zwróć tylko JSON`
-                    },
-                    { role: 'user', content: incomingMsg }
-                ]
-            },
-            { headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` } }
-        );
-
-        let raw = gptResponse.data.choices[0].message.content
-            .replace(/```json/g, '').replace(/```/g, '').trim();
-        const data = JSON.parse(raw);
-        console.log('DANE Z SMS:', data);
-
-        data.street = normalizujUlice(data.street);
-        const firma = findFirma(data.city, data.street, data.number);
-        const isValidAddress = !!firma;
-        const flatInfo = data.flat && data.flat !== 'BRAK' ? `/${data.flat}` : '';
-        const streetCleaned = data.street.replace(/^(ul\.|ulica|al\.|aleja|aleje|pl\.|plac|os\.|osiedle)\s+/i, '').trim();
-        const adres = `${data.city}, ul. ${streetCleaned} ${data.number}${flatInfo}`;
-
-        console.log('FIRMA:', firma, 'OBSŁUGIWANY:', isValidAddress);
-
-        const msgSms = `Nowe zgłoszenie (SMS):
-Firma: ${firma || 'NIEZNANA'}
-Telefon: ${phone}
-Adres: ${adres}
-Awaria: ${data.problem}`;
-
-        if (isValidAddress) {
-            await sendTelegram(msgSms, process.env.TELEGRAM_THREAD_WORKERS);
-            await sendSms(phone, `Dziękujemy, zgłoszenie przyjęte:\n${adres}`);
-        } else {
-            await sendSms(phone, `Przepraszamy, nie obsługujemy tego adresu:\n${adres}\n\nJeżeli podany wyżej adres jest nieprawidłowy, prosimy o ponowne skontaktowanie się.`);
-        }
-        await sendTelegram(msgSms + `\nObsługiwany: ${isValidAddress ? 'TAK' : 'NIE'}`, process.env.TELEGRAM_THREAD_ALL);
-
-    } catch (err) {
-        console.error('BŁĄD SMS:', err.message);
-    }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Serwer działa na porcie ${PORT}`));
+module.exports = { createApp, LANG };
