@@ -59,7 +59,7 @@ kilka dopasowań i konflikt firm; niepotwierdzone adresy; rozłączenia przed i 
 przetwarzania AI; odmowa/nieprawidłowy wynik AI; wielokrotne webhooki potwierdzenia;
 SMS, przekierowania i błąd SMSAPI; długi Telegram; healthcheck.
 
-Wynik uruchomienia: **37 testów, 37 zaliczonych, 0 błędów, 0 pominiętych**.
+Wynik uruchomienia: **38 testów, 38 zaliczonych, 0 błędów, 0 pominiętych**.
 Sprawdzono również składnię modułów (`node --check`) i `git diff --check`.
 Parser wczytał 952 adresy z aktualnego `main`; pominięto wyłącznie nagłówek „ŚDSM”.
 

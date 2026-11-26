@@ -45,6 +45,12 @@ function distance(a, b) {
 function tokenMatches(a, b, fuzzy) {
   if (a === b) return true;
   if (!fuzzy || /\d/.test(a + b) || Math.min(a.length, b.length) < 4) return false;
+  const stem = word => {
+    const ending = ['iego', 'iemu', 'ymi', 'imi', 'ego', 'emu', 'ach', 'ami', 'om', 'ym', 'im', 'ej', 'ie', 'a', 'e', 'i', 'y', 'u', 'o']
+      .find(suffix => word.endsWith(suffix) && word.length - suffix.length >= 4);
+    return ending ? word.slice(0, -ending.length) : word;
+  };
+  if (stem(a) === stem(b)) return true;
   return distance(a, b) <= (Math.min(a.length, b.length) >= 8 ? 2 : 1);
 }
 function suffixMatch(a, b, fuzzy) {
@@ -53,7 +59,8 @@ function suffixMatch(a, b, fuzzy) {
 }
 function findCandidates(data, addresses) {
   if (!data.city || !data.street || !data.number) return [];
-  const city = normalize(data.city), street = tokens(data.street);
+  const city = normalize(data.city).replace(/^(?:w|we|in)\s+/, '');
+  const street = tokens(data.street.replace(/^(?:na|przy|on)\s+(?:ulicy\s+)?/i, ''));
   const hits = addresses.filter(a => number(a.number) === number(data.number)
     && (tokenMatches(city, normalize(a.city), true) || city === normalize(a.city).replace(/ow$/, 'owie').replace(/ice$/, 'icach'))
     && (suffixMatch(street, tokens(a.street), true) || suffixMatch(tokens(a.street), street, true)));

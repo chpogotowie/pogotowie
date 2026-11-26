@@ -296,3 +296,9 @@ test('long reports are split into valid Telegram messages without truncating the
   assert.ok(parts.length > 1); assert.ok(parts.every(text => Array.from(text).length <= 4000));
   assert.ok(parts.join('').includes(problem.trim()));
 });
+test('inflected Polish streets and city prepositions remain matchable and require confirmation', () => {
+  const hits = findCandidates({ city: 'w Chorzowie', street: 'przy ulicy Gołębiej', number: '9' }, [
+    { city: 'Chorzów', street: 'Gołębia', number: '9', company: 'TEST' },
+  ]);
+  assert.equal(hits.length, 1); assert.equal(hits[0].approximate, true);
+});
